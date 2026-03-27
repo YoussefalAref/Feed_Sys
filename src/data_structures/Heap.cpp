@@ -4,11 +4,15 @@ using namespace std;
 
 // helper functions 
 
-int Heap::parent(int i) { return (i - 1) / 2; }
+// return parent and children indices
 
-int Heap::leftChild(int i) { return 2 * i + 1; }
+int Heap::parent(int i) const { return (i - 1) / 2; }
 
-int Heap::rightChild(int i) { return 2 * i + 2; }
+int Heap::leftChild(int i) const { return 2 * i + 1; }
+
+int Heap::rightChild(int i) const { return 2 * i + 2; }
+
+//swap items needed for heapify functions
 
 void Heap::swap(Item& a, Item& b) {
     Item temp = a;
@@ -16,7 +20,7 @@ void Heap::swap(Item& a, Item& b) {
     b = temp;
 }
 
-// resize 
+// resize / if the capacity is full, double it and copy over the items
 
 void Heap::resize() {
     capacity *= 2;
@@ -44,8 +48,8 @@ Heap::~Heap() {
 
 void Heap::heapifyUp(int index) {
     while (index > 0 &&
-           data[index].popularityScore >
-           data[parent(index)].popularityScore) {
+           data[index].getPopularityScore() >
+           data[parent(index)].getPopularityScore()) {
 
         swap(data[index], data[parent(index)]);
         index = parent(index);
@@ -61,14 +65,14 @@ void Heap::heapifyDown(int index) {
         int largest = index;
 
         if (left < size &&
-            data[left].popularityScore >
-            data[largest].popularityScore) {
+            data[left].getPopularityScore() >
+            data[largest].getPopularityScore()) {
             largest = left;
         }
 
         if (right < size &&
-            data[right].popularityScore >
-            data[largest].popularityScore) {
+            data[right].getPopularityScore() >
+            data[largest].getPopularityScore()) {
             largest = right;
         }
 
@@ -80,7 +84,7 @@ void Heap::heapifyDown(int index) {
     }
 }
 
-// insert
+// insert / add a new item
 
 void Heap::insert(Item item) {
     if (size == capacity) {
@@ -93,7 +97,7 @@ void Heap::insert(Item item) {
     heapifyUp(size - 1);
 }
 
-// extract max
+// extract max / most popular item
 
 Item Heap::extractMax() {
     if (isEmpty()) {
@@ -113,9 +117,9 @@ Item Heap::extractMax() {
     return maxItem;
 }
 
-// peek max
+// peek max / most popular item
 
-Item Heap::peekMax() {
+Item Heap::peekMax() const {
     if (isEmpty()) {
         cout << "Error: Heap is empty!" << endl;
         return Item();
@@ -126,18 +130,18 @@ Item Heap::peekMax() {
 
 // utility functions
 
-bool Heap::isEmpty() {
+bool Heap::isEmpty() const {
     return size == 0;
 }
 
-int Heap::getSize() {
+int Heap::getSize() const {
     return size;
 }
 
-void Heap::display() {
+void Heap::display() const {
     cout << "Heap Contents:\n";
     for (int i = 0; i < size; i++) {
-        cout << data[i].popularityScore << " ";
+        cout << data[i].getPopularityScore() << " ";
     }
     cout << endl;
 }

@@ -10,9 +10,9 @@ private:
     int capacity;
 
     // helper functions to calculate indices
-    int parent(int i);
-    int leftChild(int i);
-    int rightChild(int i);
+    int parent(int i) const ;
+    int leftChild(int i) const ;
+    int rightChild(int i) const ;
 
     // main internal functions
     void resize();
@@ -28,12 +28,12 @@ public:
     // main heap functions
     void insert(Item item);
     Item extractMax();
-    Item peekMax();
+    Item peekMax() const;
 
     // utility functions
-    bool isEmpty();
-    int getSize();
-    void display();
+    bool isEmpty() const;
+    int getSize() const;
+    void display() const;
 };
 
 #endif 
