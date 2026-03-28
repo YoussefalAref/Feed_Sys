@@ -1,6 +1,24 @@
 #ifndef INTERACTION_H
 #define INTERACTION_H
 
+#include <ctime>
+#include <string>
+enum InteractionType { VIEW, CLICK, ADD_TO_CART, PURCHASE };
+class Interaction {
+private:
+    int userID;
+    int itemID;
+    InteractionType type;
+    long timestamp;
+public:
+    Interaction(int userID, int itemID, InteractionType type);
+    int getUserID() const;
+    int getItemID() const;
+    InteractionType getType() const;
+    long getTimestamp() const;
+    void display() const;
+};
+
 /*
  * ============================================================
  *  FILE: src/models/Interaction.h
