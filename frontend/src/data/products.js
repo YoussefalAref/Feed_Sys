@@ -1,0 +1,58 @@
+export const products = [
+  {
+    id: 1,
+    name: 'NeuraBuds Pro',
+    price: 129.99,
+    popularity: 98,
+    image: 'https://picsum.photos/seed/biteapple-earbuds/640/420',
+  },
+  {
+    id: 2,
+    name: 'PulseWatch S2',
+    price: 219.0,
+    popularity: 91,
+    image: 'https://picsum.photos/seed/biteapple-watch/640/420',
+  },
+  {
+    id: 3,
+    name: 'NovaPad Air',
+    price: 499.0,
+    popularity: 95,
+    image: 'https://picsum.photos/seed/biteapple-tablet/640/420',
+  },
+  {
+    id: 4,
+    name: 'OrbitCam 4K',
+    price: 159.5,
+    popularity: 82,
+    image: 'https://picsum.photos/seed/biteapple-camera/640/420',
+  },
+  {
+    id: 5,
+    name: 'CoreKey Mechanical',
+    price: 89.99,
+    popularity: 77,
+    image: 'https://picsum.photos/seed/biteapple-keyboard/640/420',
+  },
+  {
+    id: 6,
+    name: 'CloudMouse X',
+    price: 69.0,
+    popularity: 86,
+    image: 'https://picsum.photos/seed/biteapple-mouse/640/420',
+  },
+  {
+    id: 7,
+    name: 'ZenDisplay 27',
+    price: 329.0,
+    popularity: 88,
+    image: 'https://picsum.photos/seed/biteapple-monitor/640/420',
+  },
+  {
+    id: 8,
+    name: 'SparkCharge Dock',
+    price: 49.0,
+    popularity: 73,
+    image: 'https://picsum.photos/seed/biteapple-dock/640/420',
+  },
+];
