@@ -127,10 +127,15 @@
  */
 
 // ── YOUR CODE GOES BELOW THIS LINE ──────────────────────────
+#include "models/User.h"
+#include "models/Item.h"
+#include "models/Interaction.h"
+#include "models/InteractionManager.h"
+#include "data_structures/Queue.h"
 
 int main() {
 
-    // Write your demo here following the steps described above.
 
     return 0;
 }
+

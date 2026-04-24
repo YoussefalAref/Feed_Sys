@@ -20,7 +20,7 @@ public:
     Interaction dequeue();
     Interaction peek();
     bool isEmpty();
-    int getsize();
+    int getSize();
     void display();
 };
 /*
