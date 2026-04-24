@@ -11,13 +11,17 @@ private:
     InteractionType type;
     long timestamp;
 public:
+    //saves the new live event
     Interaction(int userID, int itemID, InteractionType type);
+    // used in loading from file
+    Interaction(int userID, int itemID, InteractionType type, long timestamp);
     int getUserID() const;
     int getItemID() const;
     InteractionType getType() const;
     long getTimestamp() const;
     void display() const;
 };
+
 
 /*
  * ============================================================

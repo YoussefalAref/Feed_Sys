@@ -1,5 +1,6 @@
 #include "Queue.h"
 #include<iostream>
+#include <stdexcept>
     Queue::Queue() : front(nullptr), back(nullptr), size(0) {}
     Queue::~Queue() {
         while (front != nullptr) {
@@ -44,7 +45,7 @@
         }
         return false;
         }
-    int Queue::getsize(){
+    int Queue::getSize(){
         return size;
     }
     void Queue:: display(){
