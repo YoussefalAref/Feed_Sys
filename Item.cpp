@@ -3,12 +3,13 @@
 #include <string>
 using namespace std;
 
-Item::Item(string id, string n, double p, string c, int pS){
+Item::Item(string id, string n, double p, string c, int pS, int s){
    ID = id;
    name = n;
-   p = price;
-   c = category;
-   pS = popularityScore;
+   price = p;
+   category = c;
+   popularityScore = pS;
+   stock = s;
 }
 
 string Item::getID() const{
@@ -29,6 +30,9 @@ string Item::getCategory() const{
 
 int Item::getPopularityScore() const{
     return popularityScore;
+}
+int Item::getStock() const{
+    return stock;
 }
 
 void Item::setID(string id){
@@ -51,6 +55,10 @@ void Item::setPopularityScore(int ps){
     popularityScore = ps;
 }
 
+void Item::setStock(int s){
+    stock = s;
+}
+
 void Item::incrementPopularityScore(int num){
     popularityScore += num;
 }
@@ -67,4 +75,5 @@ void Item::displayItem() const{
     cout<<"Item's price is: "<<price<<endl;
     cout<<"Item's category is: "<<category<<endl;
     cout<<"Item's popularity score is: "<<popularityScore<<endl;
+    cout<<"Number of items in stock is: "<<stock<<endl;
 }
