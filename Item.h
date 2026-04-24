@@ -29,7 +29,6 @@ void setCategory(string c);
 void setPopularityScore(int ps);
 void setStock(int s);
 void incrementPopularityScore(int num);
-void decrementPopularityScore(int num);
 void resetPopularity();
 void displayItem() const;
 };

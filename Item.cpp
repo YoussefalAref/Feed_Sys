@@ -62,9 +62,7 @@ void Item::setStock(int s){
 void Item::incrementPopularityScore(int num){
     popularityScore += num;
 }
-void Item::decrementPopularityScore(int num){
-    popularityScore -= num;
-}
+
 void Item::resetPopularity(){
     popularityScore = 0;
 }
