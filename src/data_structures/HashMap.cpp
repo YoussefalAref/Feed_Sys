@@ -1,174 +1,223 @@
 #include "HashMap.h"
 #include <iostream>
+#include <stdexcept>
 #include <string>
-using namespace std;
 
-//Return the bucket number for a string input
-template<>
-int HashMap<string, string>::hashFunction(string key){
-    int hash = 0;
+// ---------------------------------------------------------------------------
+// Hash functions
+// Specialised per key type so the template works for both int and string keys.
+// ---------------------------------------------------------------------------
+
+// Polynomial rolling hash for string keys — distributes characters evenly.
+// prime = 31 is a common choice for lowercase ASCII; mod keeps index in range.
+// O(|key|).
+template <>
+int HashMap<std::string, std::string>::hashFunction(const std::string& key) const {
+    int hash  = 0;
     int prime = 31;
-    for(int i = 0; i<key.length(); i++){
-        hash = (hash * prime + key[i]) % capacity;
-    }
+    for (char c : key)
+        hash = (hash * prime + c) % capacity_;
     return hash;
 }
 
-
-//Return the bucker number for an integer input
-template<>
-int HashMap<int, string>::hashFunction(int key){
-    return key % capacity;
+// Modulo hash for integer keys — O(1).
+// abs() prevents negative indices from negative keys.
+template <>
+int HashMap<int, std::string>::hashFunction(const int& key) const {
+    return (key < 0 ? -key : key) % capacity_;
 }
 
-//Constructor to initialize the table with empty buckets
-template<typename K, typename V>
-HashMap<K,V>::HashMap(int initialCapacity, double loadFactor){
-    this->capacity = initialCapacity;
-    this->loadFactor = loadFactor;
-    this->size = 0;
-    table = new Node<K,V>*[capacity];
-    for(int i = 0; i < capacity; i++){
-        table[i] = nullptr;
-    }
+// Generic fallback — callers using other key types must specialise this.
+template <typename K, typename V>
+int HashMap<K, V>::hashFunction(const K& key) const {
+    return 0; // override by adding a specialisation for your key type
 }
 
-//Destructor to free all nodes and then delete the table
-template<typename K, typename V>
-HashMap<K,V>:: ~HashMap(){
-    for(int i = 0; i < capacity; i++){
-        Node<K,V>* current = table[i];
-        while(current != nullptr){
-            Node<K,V>* toDelete = current;
-            current = current->next;
-            delete toDelete;
+// ---------------------------------------------------------------------------
+// Constructor
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+HashMap<K, V>::HashMap(int initialCapacity, double loadFactor)
+    : capacity_(initialCapacity), size_(0), loadFactor_(loadFactor)
+{
+    table_ = new Node<K, V>*[capacity_];
+    for (int i = 0; i < capacity_; ++i)
+        table_[i] = nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// Destructor — frees every node in every chain, then the bucket array.
+// O(capacity + n).
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+HashMap<K, V>::~HashMap() {
+    for (int i = 0; i < capacity_; ++i) {
+        Node<K, V>* cur = table_[i];
+        while (cur) {
+            Node<K, V>* next = cur->next;
+            delete cur;
+            cur = next;
         }
     }
-    delete[] table;
+    delete[] table_;
 }
 
-// insert a key and value pair into the hash map, if key already exists, update the value, if key is new, add a new node to the corresponding bucket
-template<typename K, typename V>
-void HashMap<K,V>::insert(K key, V value){
-    int index = hashFunction(key);
-    Node<K,V>* current = table[index];
-    while(current != nullptr){
-        if(current->key == key){
-            current->value = value;
+// ---------------------------------------------------------------------------
+// insert
+// Hash the key to find the bucket, walk its chain:
+//   - Key found  → update value in place (upsert).
+//   - Key absent → prepend a new node at the chain head (O(1) — no tail walk).
+// After insertion check the load factor; rehash if threshold exceeded.
+// O(1) average.
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+void HashMap<K, V>::insert(const K& key, const V& value) {
+    int idx = hashFunction(key);
+
+    for (Node<K, V>* cur = table_[idx]; cur; cur = cur->next) {
+        if (cur->key == key) {
+            cur->value = value;
             return;
         }
-        current = current->next;
     }
 
-    Node<K,V>* newNode = new Node<K,V>(key, value);
-    newNode->next = table[index];
-    table[index] = newNode;
-    size++;
-    if((double)size / capacity >= loadFactor){
+    Node<K, V>* node = new Node<K, V>(key, value);
+    node->next  = table_[idx];
+    table_[idx] = node;
+    ++size_;
+
+    if (static_cast<double>(size_) / capacity_ >= loadFactor_)
         rehash();
-    }
 }
 
-// search for a key in the hash map and return its value, if key is not found, return default value of V
-template<typename K, typename V>
-V HashMap<K,V>::search(K key){
-    int index = hashFunction(key);
-    Node<K,V>* current = table[index];
+// ---------------------------------------------------------------------------
+// search
+// Returns the value for key, or a default-constructed V() if not found.
+// Matches your original silent-default behaviour; use update() when you need
+// to distinguish "absent" from a legitimately default value.
+// O(1) average.
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+V HashMap<K, V>::search(const K& key) {
+    int idx = hashFunction(key);
 
-    while(current != nullptr){
-        if(current->key == key){
-            return current->value;
+    for (Node<K, V>* cur = table_[idx]; cur; cur = cur->next) {
+        if (cur->key == key)
+            return cur->value;
+    }
+    return V(); // key not found — return default
+}
+
+// ---------------------------------------------------------------------------
+// update
+// Like search, but mutates the value and throws if the key is absent.
+// Use this when you need a strict "key must already exist" guarantee.
+// O(1) average.
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+void HashMap<K, V>::update(const K& key, const V& value) {
+    int idx = hashFunction(key);
+
+    for (Node<K, V>* cur = table_[idx]; cur; cur = cur->next) {
+        if (cur->key == key) {
+            cur->value = value;
+            return;
         }
-        current = current->next;
     }
-    return V();
+    throw std::out_of_range("HashMap::update — key not found");
 }
 
-// remove a key from the hash map, return true if the key was found and removed, false otherwise
-template<typename K, typename V>
-bool HashMap<K,V>::remove(K key){
-    int index = hashFunction(key);
-    Node<K,V>* current = table[index];
-    Node<K,V>* prev = nullptr;
+// ---------------------------------------------------------------------------
+// remove
+// Trailing-pointer splice: prev trails one step behind cur so we can unlink
+// cur without a doubly-linked list or a special case for the head node.
+// Returns true if the key was found and removed, false otherwise.
+// O(1) average.
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+bool HashMap<K, V>::remove(const K& key) {
+    int          idx  = hashFunction(key);
+    Node<K, V>*  prev = nullptr;
+    Node<K, V>*  cur  = table_[idx];
 
-    while(current != nullptr){
-        if(current->key == key){
-            if(prev == nullptr){
-                table[index] = current->next;
-            } else{
-                prev->next = current->next;
-            }
-            delete current;
-            size--;
+    while (cur) {
+        if (cur->key == key) {
+            if (prev)
+                prev->next  = cur->next;   // splice from middle or tail
+            else
+                table_[idx] = cur->next;   // splice head of chain
+
+            delete cur;
+            --size_;
             return true;
         }
-        prev = current;
-        current = current->next;
+        prev = cur;
+        cur  = cur->next;
     }
-    return false;
+    return false; // key not found
 }
 
-// rehash the table by creating a new table with double the capacity and reinserting all existing key-value pairs into the new table
-template<typename K, typename V>
-void HashMap<K, V>:: rehash(){
-    int oldCapacity = capacity;
-    Node<K,V>** oldTable = table;
+// ---------------------------------------------------------------------------
+// rehash
+// Triggered automatically by insert() when load factor is exceeded.
+// Doubles capacity, allocates a fresh table, and reinserts every existing
+// node so keys are redistributed across the larger bucket array.
+// Old nodes are freed after reinsertion — they are NOT reused, because their
+// hash index changes with the new capacity.
+// O(n).
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+void HashMap<K, V>::rehash() {
+    int           oldCapacity = capacity_;
+    Node<K, V>**  oldTable    = table_;
 
-    capacity = capacity * 2;
-    table = new Node<K,V>*[capacity];
+    capacity_ = capacity_ * 2;
+    table_    = new Node<K, V>*[capacity_];
+    for (int i = 0; i < capacity_; ++i)
+        table_[i] = nullptr;
+    size_ = 0; // insert() will recount
 
-    for(int i = 0; i < capacity; i++){
-        table[i] = nullptr;
-    }
-    size = 0;
-    for(int i = 0; i < oldCapacity; i++){
-        Node<K,V>* current = oldTable[i];
-        while(current != nullptr){
-            insert(current->key, current->value);
-            current = current->next;
+    for (int i = 0; i < oldCapacity; ++i) {
+        Node<K, V>* cur = oldTable[i];
+        while (cur) {
+            insert(cur->key, cur->value); // reinsert into new table
+            cur = cur->next;
         }
     }
-    for(int i = 0; i < oldCapacity; i++){
-        Node<K,V>* current = oldTable[i];
-        while(current != nullptr){
-        Node<K,V>* toDelete = current;
-        current = current->next;
-        delete toDelete;
+
+    // Free old nodes (insert() allocated new ones above)
+    for (int i = 0; i < oldCapacity; ++i) {
+        Node<K, V>* cur = oldTable[i];
+        while (cur) {
+            Node<K, V>* next = cur->next;
+            delete cur;
+            cur = next;
         }
     }
     delete[] oldTable;
 }
 
-// this prints the entire table bucket by bucker.
-template<typename K, typename V>
-void HashMap<K, V>:: display(){
-    for(int i = 0; i < capacity; i++){
-        cout<<"Bucket "<<i<<": ";
-        Node<K,V>* current = table[i];
-        while(current != nullptr){
-            cout<<"["<<current->key<<" -> "<<current->value<<"] ";
-            current = current->next;
+// ---------------------------------------------------------------------------
+// display — prints every bucket and its chain. Useful for debugging.
+// O(capacity + n).
+// ---------------------------------------------------------------------------
+template <typename K, typename V>
+void HashMap<K, V>::display() const {
+    for (int i = 0; i < capacity_; ++i) {
+        std::cout << "Bucket " << i << ": ";
+        Node<K, V>* cur = table_[i];
+        while (cur) {
+            std::cout << "[" << cur->key << " -> " << cur->value << "] ";
+            cur = cur->next;
         }
-        cout<<endl;
+        std::cout << "\n";
     }
 }
 
-//Getters
-template <typename K, typename V>
-int HashMap<K, V>::getSize(){
-    return size;
-}
-
-template <typename K, typename V>
-int HashMap<K, V>::getCapacity(){
-    return capacity;
-}
-// explicit instantiation of the template class
-template class HashMap<string, string>;
-template class HashMap<int, string>;
-
-
-
-
+// ---------------------------------------------------------------------------
+// Explicit instantiations — add more as needed for other key/value types.
+// ---------------------------------------------------------------------------
+template class HashMap<std::string, std::string>;
+template class HashMap<int, std::string>;
 
 
