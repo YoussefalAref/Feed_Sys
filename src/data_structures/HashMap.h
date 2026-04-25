@@ -1,46 +1,68 @@
-#ifndef HASHMAP_H
-#define HASHMAP_H
+#ifndef HASHMAP_HPP
+#define HASHMAP_HPP
 
 #include <iostream>
 #include <string>
-using namespace std;
+#include <stdexcept>
 
-//Node struct to handle collisions using chaining
+// Node in the chained linked list stored at each bucket.
+// Chaining lets multiple keys that hash to the same bucket coexist without
+// evicting each other — each bucket is just the head of a short linked list.
 template <typename K, typename V>
-struct Node{
-    K key;
-    V value;
+struct Node {
+    K     key;
+    V     value;
     Node* next;
 
-    Node(K k, V v) : key(k), value(v), next(nullptr) {}
+    Node(const K& k, const V& v) : key(k), value(v), next(nullptr) {}
 };
 
-/*HashMap class: uses chaining for collision resolution and its time complexity is:
-INSERT: O(1) average and O(n) worst case, 
-SEARCH: O(1) average and O(n) worst case, 
-REMOVE: O(1) average and O(n) worst case, 
-REHASH: O(n)*/
+/*
+ * HashMap<K, V> — separate-chaining hash table with dynamic rehashing.
+ *
+ * Collision handling : every bucket holds a singly-linked list (chain).
+ *   Keys that hash to the same bucket are appended to that chain.
+ *
+ * Rehashing : when (size / capacity) exceeds loadFactor the table is rebuilt
+ *   at 2× capacity so chains stay short and average-case complexity holds.
+ *
+ * Complexity (average / worst):
+ *   insert  — O(1) / O(n)
+ *   search  — O(1) / O(n)
+ *   update  — O(1) / O(n)
+ *   remove  — O(1) / O(n)
+ *   rehash  — O(n)  (amortised O(1) per insert)
+ */
 template <typename K, typename V>
-class HashMap{
-    private:
-        Node<K, V>** table;
-        int capacity;
-        int size;
-        double loadFactor;
-        int hashFunction(K key); // Hash function to fund the bucket index
-        void rehash();
-    public:
-    HashMap(int initialCapacity = 10, double loadFactor = 0.75);
+class HashMap {
+public:
+    explicit HashMap(int initialCapacity = 10, double loadFactor = 0.75);
     ~HashMap();
-    void insert(K key, V value);
-    V search(K key);
-    bool remove(K key);
-    int getSize();
-    int getCapacity();
-    void display();
-};
-#endif
 
+    HashMap(const HashMap&)            = delete;
+    HashMap& operator=(const HashMap&) = delete;
+
+    void insert(const K& key, const V& value);  // upsert; triggers rehash if needed
+    V    search(const K& key);                  // returns V() if key absent
+    void update(const K& key, const V& value);  // throws std::out_of_range if absent
+    bool remove(const K& key);                  // true = found & removed
+
+    void display()    const;
+    int  getSize()    const { return size_; }
+    int  getCapacity()const { return capacity_; }
+
+private:
+    Node<K, V>** table_;
+    int          capacity_;
+    int          size_;
+    double       loadFactor_;
+
+    int  hashFunction(const K& key) const;
+    void rehash();
+};
+
+#include "HashMap.cpp"  // template definitions must be visible at instantiation
+#endif
 
 
 
