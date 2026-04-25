@@ -88,5 +88,71 @@
 
 // ── YOUR CODE GOES BELOW THIS LINE ──────────────────────────
 
+#include <string>
+#include <ctime>
+
+class User {
+public:
+    // Construct a fully populated user; timestamps to now if createdAt == 0
+    User(int userId,
+         const std::string& email,
+         const std::string& passwordHash,
+         const std::string& category,
+         float              score,
+         time_t             createdAt = 0);
+
+    // Default constructor — produces an empty, invalid user
+    User();
+
+    // ── Getters ────────────────────────────────────────────
+    int                getUserId()      const;
+    const std::string& getEmail()       const;
+    const std::string& getPasswordHash()const;
+    const std::string& getCategory()    const;
+    float              getScore()       const;
+    time_t             getCreatedAt()   const;
+
+    // Activity score components (views×1, clicks×2, cartAdds×5, purchases×10)
+    int  getViews()     const;
+    int  getClicks()    const;
+    int  getCartAdds()  const;
+    int  getPurchases() const;
+    int  getActivityScore() const;
+    const std::string& getUserLevel()   const;
+
+    // ── Setters ────────────────────────────────────────────
+    void setEmail(const std::string& email);
+    void setPasswordHash(const std::string& hash);
+    void setCategory(const std::string& category);
+    void setScore(float score);
+
+    // Increment activity counters and recompute level
+    void addViews(int n = 1);
+    void addClicks(int n = 1);
+    void addCartAdds(int n = 1);
+    void addPurchases(int n = 1);
+
+    // ── Utility ────────────────────────────────────────────
+    std::string toString() const;   // human-readable dump for debugging
+    bool        isValid()  const;   // true if all required fields are non-empty
+
+private:
+    int         userId_;
+    std::string email_;
+    std::string passwordHash_;
+    std::string category_;
+    float       score_;
+    time_t      createdAt_;
+
+    // Activity tracking
+    int         views_;
+    int         clicks_;
+    int         cartAdds_;
+    int         purchases_;
+    std::string userLevel_;   // "Normal" | "Active" | "VIP"
+
+    // Recomputes userLevel_ from current activity counters
+    void updateLevel();
+};
 
 #endif // USER_H
