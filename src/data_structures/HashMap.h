@@ -1,5 +1,5 @@
-#ifndef HASHMAP_HPP
-#define HASHMAP_HPP
+#ifndef HashMap_H
+#define HashMap_H
 
 #include <iostream>
 #include <string>
@@ -51,6 +51,11 @@ public:
     int  getSize()    const { return size_; }
     int  getCapacity()const { return capacity_; }
 
+    // Returns the head node of bucket[index] for external iteration.
+    // Used by modules (e.g. Authentication) that need to scan all values
+    // for non-key fields such as email. Read-only — do not modify nodes.
+    const Node<K, V>* getBucket(int index) const { return table_[index]; }
+
 private:
     Node<K, V>** table_;
     int          capacity_;
@@ -63,6 +68,5 @@ private:
 
 #include "HashMap.cpp"  // template definitions must be visible at instantiation
 #endif
-
 
 
