@@ -157,6 +157,19 @@ template <typename K, typename V>
 int HashMap<K, V>::getCapacity(){
     return capacity;
 }
+
+template<typename K, typename V>
+Vector<V> HashMap<K,V>::getAll(){
+    Vector<V> allItems;
+    for(int i = 0; i < capacity; i++){
+        Node<K,V>* current = table[i];
+        while(current != nullptr){
+            allItems.push_back(current->value);
+            current = current->next;
+        }
+    }
+    return allItems;
+}
 // explicit instantiation of the template class
 template class HashMap<string, Item>;
 
