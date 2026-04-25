@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include "Vector.h"
 using namespace std;
 
 //Node struct to handle collisions using chaining
@@ -38,6 +39,7 @@ class HashMap{
     int getSize();
     int getCapacity();
     void display();
+    Vector<V> getAll();
 };
 #endif
 
