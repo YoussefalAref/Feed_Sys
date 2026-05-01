@@ -1,24 +1,18 @@
 #include "HashMap.h"
+#include "Item.h"
 #include <iostream>
 #include <string>
 using namespace std;
 
 //Return the bucket number for a string input
 template<>
-int HashMap<string, string>::hashFunction(string key){
+int HashMap<string, Item>::hashFunction(string key){
     int hash = 0;
-    int prime = 31;
+    int prime = 77;
     for(int i = 0; i<key.length(); i++){
         hash = (hash * prime + key[i]) % capacity;
     }
     return hash;
-}
-
-
-//Return the bucker number for an integer input
-template<>
-int HashMap<int, string>::hashFunction(int key){
-    return key % capacity;
 }
 
 //Constructor to initialize the table with empty buckets
@@ -163,9 +157,21 @@ template <typename K, typename V>
 int HashMap<K, V>::getCapacity(){
     return capacity;
 }
+
+template<typename K, typename V>
+Vector<V> HashMap<K,V>::getAll(){
+    Vector<V> allItems;
+    for(int i = 0; i < capacity; i++){
+        Node<K,V>* current = table[i];
+        while(current != nullptr){
+            allItems.push_back(current->value);
+            current = current->next;
+        }
+    }
+    return allItems;
+}
 // explicit instantiation of the template class
-template class HashMap<string, string>;
-template class HashMap<int, string>;
+template class HashMap<string, Item>;
 
 
 
