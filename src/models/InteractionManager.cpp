@@ -2,6 +2,23 @@
 #include <iostream>
 #include <fstream>
 
+namespace {
+int interactionWeight(InteractionType type) {
+    if (type == VIEW) return 1;
+    if (type == CLICK) return 2;
+    if (type == ADD_TO_CART) return 5;
+    if (type == PURCHASE) return 10;
+    return 0;
+}
+
+void applyUserActivity(User& user, InteractionType type) {
+    if (type == VIEW) user.addViews();
+    else if (type == CLICK) user.addClicks();
+    else if (type == ADD_TO_CART) user.addCartAdds();
+    else if (type == PURCHASE) user.addPurchases();
+}
+}
+
 void InteractionManager::sendToAPI(Queue& q, int uID, int iID, InteractionType type) {
     Interaction newEvent(uID, iID, type);
     q.enqueue(newEvent);
@@ -16,15 +33,10 @@ void InteractionManager::processAll(Queue& q, Item& targetItem, User& activeUser
         InteractionType type = i.getType();
 
         // 1. Update Item Popularity
-        targetItem.updateScore(type); //DEV2 handles this logic based on interaction type
+        targetItem.updateScore(interactionWeight(type));
 
         // 2. Update User Activity (using weights from Interaction.h)
-        if (type == VIEW) activeUser.activityScore += 1;//DEV1 handles this logic based on interaction type
-        else if (type == CLICK) activeUser.activityScore += 2;
-        else if (type == ADD_TO_CART) activeUser.activityScore += 5;
-        else if (type == PURCHASE) activeUser.activityScore += 10;
-
-        activeUser.updateLevel();//DEV1 handles this logic based on activity score thresholds
+        applyUserActivity(activeUser, type);
     }
 }
 // DATABASE RESPONSIBILITY: Store interaction logs in a text file

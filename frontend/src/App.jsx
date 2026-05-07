@@ -1,13 +1,29 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Cart from './pages/Cart';
+import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
-import SignIn from './pages/SignIn';
-import SignUp from './pages/SignUp';
-import Cart from './components/Cart';
-import { useShop } from './context/ShopContext';
+import Login from './pages/Login';
+import NotFound from './pages/NotFound';
+import ProductDetails from './pages/ProductDetails';
+import Signup from './pages/Signup';
+
+const isAdminApp = import.meta.env.MODE === 'admin';
 
 function App() {
-  const { authUser } = useShop();
+  if (isAdminApp) {
+    return (
+      <div className="app-shell admin-app-shell">
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -15,13 +31,11 @@ function App() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/products/:itemId" element={<ProductDetails />} />
           <Route path="/cart" element={<Cart />} />
-          <Route
-            path="*"
-            element={<Navigate to={authUser ? '/' : '/signin'} replace />}
-          />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </div>

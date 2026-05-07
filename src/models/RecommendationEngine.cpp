@@ -40,9 +40,9 @@ int RecommendationEngine::getCandidates(int userId, Item candidates[]) {
     // 1. FROM USER INTERACTIONS
     for (int i = 0; i < interactionCount; i++) {
 
-        if (interactions[i].getUserId() == userId) {
+        if (interactions[i].getUserID() == userId) {
 
-            string itemId = interactions[i].getItemId();
+            string itemId = to_string(interactions[i].getItemID());
 
             if (!exists(candidates, count, itemId)) {
 
@@ -126,11 +126,11 @@ double RecommendationEngine::getSimilarity(int userId, string itemId) {
 
     for (int i = 0; i < interactionCount; i++) {
 
-        if (interactions[i].getUserId() == userId) {
+        if (interactions[i].getUserID() == userId) {
 
             int neighborCount;
             string* neighbors =
-                graph.getNeighbors(interactions[i].getItemId(), neighborCount);
+                graph.getNeighbors(to_string(interactions[i].getItemID()), neighborCount);
 
             for (int j = 0; j < neighborCount; j++) {
                 if (neighbors[j] == itemId)
@@ -155,8 +155,8 @@ double RecommendationEngine::getCategoryScore(int userId, Item& item) {
 double RecommendationEngine::getRecency(int userId, string itemId) {
 
     for (int i = 0; i < interactionCount; i++) {
-        if (interactions[i].getUserId() == userId &&
-            interactions[i].getItemId() == itemId) {
+        if (interactions[i].getUserID() == userId &&
+            to_string(interactions[i].getItemID()) == itemId) {
             return 1.0;
         }
     }

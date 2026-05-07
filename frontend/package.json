@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:admin": "vite --mode admin --port 5174",
     "build": "vite build",
+    "build:admin": "vite build --mode admin --outDir dist-admin",
     "preview": "vite preview"
   },
   "dependencies": {

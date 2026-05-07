@@ -1,128 +1,80 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useShop } from '../context/ShopContext';
+import { signup } from '../services/api';
 
-export default function SignUp() {
+function Signup() {
   const navigate = useNavigate();
-  const { signUp } = useShop();
-
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
+    category: 'Electronics',
+    region: 'Cairo',
   });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleChange = (event) => {
+  const updateField = (event) => {
     const { name, value } = event.target;
-    setForm((previous) => ({ ...previous, [name]: value }));
-  };
-
-  const validate = () => {
-    if (!form.name.trim() || !form.email.trim() || !form.password.trim() || !form.confirmPassword.trim()) {
-      return 'Please complete all fields.';
-    }
-
-    const emailPattern = /\S+@\S+\.\S+/;
-    if (!emailPattern.test(form.email)) {
-      return 'Please enter a valid email address.';
-    }
-
-    if (form.password.length < 6) {
-      return 'Password must be at least 6 characters.';
-    }
-
-    if (form.password !== form.confirmPassword) {
-      return 'Passwords do not match.';
-    }
-
-    return '';
+    setForm((current) => ({ ...current, [name]: value }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const validationError = validate();
-
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
     setError('');
-    setLoading(true);
 
     try {
-      await signUp({
-        name: form.name,
-        email: form.email,
-        password: form.password,
-      });
+      const result = await signup(form);
+      localStorage.setItem('biteapple_user', JSON.stringify(result.user));
+      localStorage.setItem('biteapple_token', result.token);
       navigate('/');
-    } catch (submitError) {
-      setError(submitError.message || 'Unable to sign up.');
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError(err.message || 'Signup failed.');
     }
   };
 
   return (
-    <section className="page auth-page">
-      <form className="auth-card" onSubmit={handleSubmit} noValidate>
-        <h1>Sign Up</h1>
-        <p>Create your BiteApple account.</p>
-
-        <label htmlFor="name">Name</label>
-        <input
-          id="name"
-          name="name"
-          type="text"
-          value={form.name}
-          onChange={handleChange}
-          placeholder="Your name"
-        />
-
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          value={form.email}
-          onChange={handleChange}
-          placeholder="you@example.com"
-        />
-
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={handleChange}
-          placeholder="Create a password"
-        />
-
-        <label htmlFor="confirmPassword">Confirm Password</label>
-        <input
-          id="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          value={form.confirmPassword}
-          onChange={handleChange}
-          placeholder="Confirm your password"
-        />
-
-        {error ? <p className="form-error">{error}</p> : null}
-
-        <button className="btn btn-primary full" type="submit" disabled={loading}>
-          {loading ? 'Creating account...' : 'Create Account'}
+    <div className="page auth-page">
+      <form className="auth-card" onSubmit={handleSubmit}>
+        <h1>Signup</h1>
+        <p>Create a mock user profile for personalized recommendations.</p>
+        <label>
+          Name
+          <input name="name" value={form.name} onChange={updateField} />
+        </label>
+        <label>
+          Email
+          <input name="email" type="email" value={form.email} onChange={updateField} />
+        </label>
+        <label>
+          Password
+          <input name="password" type="password" value={form.password} onChange={updateField} />
+        </label>
+        <div className="form-grid">
+          <label>
+            Category
+            <select name="category" value={form.category} onChange={updateField}>
+              <option>Electronics</option>
+              <option>Fitness</option>
+              <option>Home</option>
+              <option>Fashion</option>
+              <option>Kitchen</option>
+            </select>
+          </label>
+          <label>
+            Region
+            <input name="region" value={form.region} onChange={updateField} />
+          </label>
+        </div>
+        {error && <p className="form-error">{error}</p>}
+        <button className="btn btn-primary full" type="submit">
+          Signup
         </button>
-
         <p className="auth-footer">
-          Already have an account? <Link to="/signin">Sign in</Link>
+          Already have an account? <Link to="/login">Login</Link>
         </p>
       </form>
-    </section>
+    </div>
   );
 }
+
+export default Signup;

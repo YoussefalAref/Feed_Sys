@@ -1,0 +1,1 @@
+"""BiteApple dummy FastAPI backend."""

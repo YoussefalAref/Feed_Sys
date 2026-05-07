@@ -1,141 +1,205 @@
-/*
- * ============================================================
- *  FILE: src/main.cpp
- *  OWNER: Developer 5 (Integration + Models)
- * ============================================================
- *
- * PURPOSE
- * -------
- * This is the entry point of the program for Milestone 1.
- * Its job is to:
- *   1. Create sample data (users and items)
- *   2. Store them in the appropriate data structures
- *   3. Simulate user interactions
- *   4. Display rankings and recommendations
- *
- * ─────────────────────────────────────────────────────────────
- * LEARNING NOTE: #include and compilation
- *
- *   #include "path/to/file.h" tells the compiler to copy the
- *   contents of that header file into this file before compiling.
- *
- *   You will need:
- *     #include "models/User.h"
- *     #include "models/Item.h"
- *     #include "models/Interaction.h"
- *     #include "data_structures/HashMap.h"
- *     #include "data_structures/Heap.h"
- *     #include "data_structures/Queue.h"
- *     #include "data_structures/Graph.h"
- *     #include <iostream>
- *     using namespace std;
- * ─────────────────────────────────────────────────────────────
- *
- * HOW TO COMPILE (from the src/ directory)
- * -----------------------------------------
- *   g++ -std=c++17 -Wall main.cpp -o feed_sys
- *   ./feed_sys
- *
- *   Or from the project root:
- *   g++ -std=c++17 -Wall src/main.cpp -o build/feed_sys
- *
- * ─────────────────────────────────────────────────────────────
- * DEMO SCENARIO TO SIMULATE
- * --------------------------
- *
- *   STEP 1 — Create Users
- *     Create at least 5 users and insert them into UserHashMap.
- *     Example:
- *       User alice(1, "alice", "alice@mail.com", "pass123")
- *       userMap.insert(1, alice)
- *
- *   STEP 2 — Create Items
- *     Create at least 10 items and insert them into ItemHashMap.
- *     Also insert each item into the global Heap.
- *     Example:
- *       Item laptop(101, "Laptop", "Electronics", 999.99, 0.0, 50)
- *       itemMap.insert(101, laptop)
- *       globalHeap.insert(laptop)
- *
- *   STEP 3 — Build Item Similarity Graph
- *     Add all items as nodes.
- *     Add edges between related items.
- *     Example:
- *       graph.addNode(101)   // Laptop
- *       graph.addNode(102)   // Mouse
- *       graph.addEdge(101, 102)   // Laptop — Mouse
- *       graph.addEdge(101, 103)   // Laptop — Keyboard
- *
- *   STEP 4 — Simulate Interactions
- *     Create Interaction objects and enqueue them.
- *     Example:
- *       Interaction i1(1, 101, VIEW)     // alice viewed Laptop
- *       interactionQueue.enqueue(i1)
- *       Interaction i2(1, 101, PURCHASE) // alice bought Laptop
- *       interactionQueue.enqueue(i2)
- *
- *   STEP 5 — Process the Queue
- *     Dequeue each interaction and update scores.
- *     Pseudocode:
- *       while (!interactionQueue.isEmpty()) {
- *           Interaction inter = interactionQueue.dequeue()
- *           // Find the item in itemMap
- *           // Update item.popularityScore based on inter.type
- *           // Find the user in userMap
- *           // Update user.activityScore based on inter.type
- *       }
- *
- *   STEP 6 — Rebuild the Heap (after score updates)
- *     After all interactions are processed, re-insert all items
- *     into a fresh heap so the rankings reflect the new scores.
- *
- *   STEP 7 — Display Results
- *     a) Print top 5 items (for new users):
- *          for (int i = 0; i < 5 && !heap.isEmpty(); i++)
- *              cout << heap.extractMax().name << endl
- *
- *     b) Print all user levels (Normal / Active / VIP):
- *          userMap.display()
- *
- *     c) Print item neighbours from the graph:
- *          graph.getNeighbours(101)  // Similar to Laptop
- *
- * ─────────────────────────────────────────────────────────────
- * IMPORTANT NOTES FOR DEVELOPER 5
- * ----------------------------------
- *   • You are responsible for INTEGRATING all four data structures.
- *   • Make sure each team member's module compiles correctly before
- *     you try to combine them.
- *   • Start simple: get the HashMap working first, then add the Heap,
- *     then the Queue, then the Graph.
- *   • Use the display() methods from each module to verify correctness.
- *   • Add comments in main.cpp explaining WHAT each block of code does
- *     and WHY — your team will need to explain this during evaluation.
- *
- * TODO (Developer 5)
- * ------------------
- *   [ ] Add all required #include statements
- *   [ ] Declare UserHashMap, ItemHashMap, Heap, Queue, Graph
- *   [ ] STEP 1: Insert at least 5 users
- *   [ ] STEP 2: Insert at least 10 items into map AND heap
- *   [ ] STEP 3: Build the similarity graph
- *   [ ] STEP 4: Simulate at least 15 interactions (enqueue them)
- *   [ ] STEP 5: Process the queue — update scores
- *   [ ] STEP 6: Rebuild the heap with updated scores
- *   [ ] STEP 7: Display top-5 items, user levels, and item neighbours
- *   [ ] Make sure the program compiles and runs with no errors
- */
-
-// ── YOUR CODE GOES BELOW THIS LINE ──────────────────────────
-#include "models/User.h"
-#include "models/Item.h"
-#include "models/Interaction.h"
-#include "models/InteractionManager.h"
+#include "data_structures/Graph.h"
+#include "data_structures/HashMap.h"
+#include "data_structures/Heap.h"
 #include "data_structures/Queue.h"
+#include "models/Interaction.h"
+#include "models/Item.h"
+#include "models/User.h"
 
-int main() {
+#include <iostream>
+#include <string>
 
+using namespace std;
 
+const int USER_COUNT = 5;
+const int ITEM_COUNT = 10;
+
+int interactionWeight(InteractionType type) {
+    if (type == VIEW) return 1;
+    if (type == CLICK) return 2;
+    if (type == ADD_TO_CART) return 5;
+    if (type == PURCHASE) return 10;
     return 0;
 }
 
+int findItemIndex(Item items[], int count, int itemId) {
+    string id = to_string(itemId);
+    for (int i = 0; i < count; ++i) {
+        if (items[i].getID() == id) return i;
+    }
+    return -1;
+}
+
+int findUserIndex(User users[], int count, int userId) {
+    for (int i = 0; i < count; ++i) {
+        if (users[i].getUserId() == userId) return i;
+    }
+    return -1;
+}
+
+void applyUserActivity(User& user, InteractionType type) {
+    if (type == VIEW) user.addViews();
+    else if (type == CLICK) user.addClicks();
+    else if (type == ADD_TO_CART) user.addCartAdds();
+    else if (type == PURCHASE) user.addPurchases();
+}
+
+void enqueueDemoInteractions(Queue& interactions) {
+    interactions.enqueue(Interaction(1, 101, VIEW));
+    interactions.enqueue(Interaction(1, 106, CLICK));
+    interactions.enqueue(Interaction(1, 106, ADD_TO_CART));
+    interactions.enqueue(Interaction(1, 101, PURCHASE));
+    interactions.enqueue(Interaction(2, 102, VIEW));
+    interactions.enqueue(Interaction(2, 107, ADD_TO_CART));
+    interactions.enqueue(Interaction(2, 102, PURCHASE));
+    interactions.enqueue(Interaction(3, 108, VIEW));
+    interactions.enqueue(Interaction(3, 103, CLICK));
+    interactions.enqueue(Interaction(4, 104, VIEW));
+    interactions.enqueue(Interaction(4, 104, PURCHASE));
+    interactions.enqueue(Interaction(5, 105, VIEW));
+    interactions.enqueue(Interaction(5, 110, CLICK));
+    interactions.enqueue(Interaction(5, 105, ADD_TO_CART));
+    interactions.enqueue(Interaction(1, 106, PURCHASE));
+}
+
+void processInteractions(Queue& queue, Item items[], int itemCount, User users[], int userCount) {
+    cout << "\nProcessing FIFO interaction queue\n";
+    while (!queue.isEmpty()) {
+        Interaction event = queue.dequeue();
+        int weight = interactionWeight(event.getType());
+
+        int itemIndex = findItemIndex(items, itemCount, event.getItemID());
+        if (itemIndex >= 0) {
+            items[itemIndex].incrementPopularityScore(weight);
+        }
+
+        int userIndex = findUserIndex(users, userCount, event.getUserID());
+        if (userIndex >= 0) {
+            applyUserActivity(users[userIndex], event.getType());
+        }
+
+        event.display();
+    }
+}
+
+void showTopItems(Item items[], int itemCount, int limit) {
+    Heap heap(itemCount);
+    for (int i = 0; i < itemCount; ++i) {
+        heap.insert(items[i]);
+    }
+
+    cout << "\nTop " << limit << " products by heap ranking\n";
+    for (int i = 0; i < limit && !heap.isEmpty(); ++i) {
+        Item item = heap.extractMax();
+        cout << i + 1 << ". " << item.getName()
+             << " | score=" << item.getPopularityScore()
+             << " | category=" << item.getCategory() << "\n";
+    }
+}
+
+void showUserLevels(User users[], int userCount) {
+    cout << "\nUser activity levels\n";
+    for (int i = 0; i < userCount; ++i) {
+        cout << "User " << users[i].getUserId()
+             << " | " << users[i].getEmail()
+             << " | activity=" << users[i].getActivityScore()
+             << " | level=" << users[i].getUserLevel() << "\n";
+    }
+}
+
+void showGraphNeighbors(Graph& graph, const string& itemId) {
+    int count = 0;
+    string* neighbors = graph.getNeighbors(itemId, count);
+
+    cout << "\nGraph neighbors for item " << itemId << "\n";
+    if (count == 0 || neighbors == nullptr) {
+        cout << "No related products found.\n";
+        return;
+    }
+
+    for (int i = 0; i < count; ++i) {
+        cout << "- " << neighbors[i] << "\n";
+    }
+}
+
+void showPersonalizedCandidates(User& user, Item items[], int itemCount, Graph& graph) {
+    Heap personalized(itemCount);
+
+    for (int i = 0; i < itemCount; ++i) {
+        Item candidate = items[i];
+        int score = candidate.getPopularityScore();
+
+        if (candidate.getCategory() == user.getCategory()) {
+            score += 15;
+        }
+
+        int neighborCount = 0;
+        string* neighbors = graph.getNeighbors(candidate.getID(), neighborCount);
+        if (neighbors != nullptr && neighborCount > 0) {
+            score += 5;
+        }
+
+        candidate.setPopularityScore(score);
+        personalized.insert(candidate);
+    }
+
+    cout << "\nPersonalized top 3 for " << user.getEmail()
+         << " using popularity + category boost + graph signal\n";
+    for (int i = 0; i < 3 && !personalized.isEmpty(); ++i) {
+        Item item = personalized.extractMax();
+        cout << i + 1 << ". " << item.getName()
+             << " | recommendationScore=" << item.getPopularityScore() << "\n";
+    }
+}
+
+int main() {
+    User users[USER_COUNT] = {
+        User(1, "mariam@biteapple.test", "hash-1", "Electronics", 92),
+        User(2, "omar@biteapple.test", "hash-2", "Fitness", 76),
+        User(3, "manager@biteapple.test", "hash-3", "Business", 98),
+        User(4, "nour@biteapple.test", "hash-4", "Fashion", 61),
+        User(5, "salma@biteapple.test", "hash-5", "Kitchen", 70),
+    };
+
+    Item items[ITEM_COUNT] = {
+        Item("101", "AirPods Pro MaxCase", 2499, "Electronics", 94, 18),
+        Item("102", "Smart Fitness Band", 1299, "Fitness", 87, 31),
+        Item("103", "Minimal Desk Lamp", 850, "Home", 78, 24),
+        Item("104", "Campus Backpack", 1100, "Fashion", 83, 15),
+        Item("105", "Cold Brew Kit", 690, "Kitchen", 72, 22),
+        Item("106", "Wireless Keyboard", 1650, "Electronics", 91, 12),
+        Item("107", "Yoga Recovery Mat", 780, "Fitness", 69, 27),
+        Item("108", "Ceramic Dinner Set", 1850, "Home", 81, 9),
+        Item("109", "Running Shoes", 1450, "Fitness", 74, 16),
+        Item("110", "Espresso Grinder", 2100, "Kitchen", 79, 8),
+    };
+
+    HashMap<int, string> userEmailLookup;
+    HashMap<int, string> itemNameLookup;
+    for (int i = 0; i < USER_COUNT; ++i) {
+        userEmailLookup.insert(users[i].getUserId(), users[i].getEmail());
+    }
+    for (int i = 0; i < ITEM_COUNT; ++i) {
+        itemNameLookup.insert(stoi(items[i].getID()), items[i].getName());
+    }
+
+    cout << "HashMap lookup demo\n";
+    cout << "User 1 email: " << userEmailLookup.search(1) << "\n";
+    cout << "Item 106 name: " << itemNameLookup.search(106) << "\n";
+
+    Graph graph;
+    graph.build(items, ITEM_COUNT);
+
+    Queue interactionQueue;
+    enqueueDemoInteractions(interactionQueue);
+    cout << "\nQueued interactions: " << interactionQueue.getSize() << "\n";
+
+    processInteractions(interactionQueue, items, ITEM_COUNT, users, USER_COUNT);
+
+    showTopItems(items, ITEM_COUNT, 5);
+    showUserLevels(users, USER_COUNT);
+    showGraphNeighbors(graph, "101");
+    showPersonalizedCandidates(users[0], items, ITEM_COUNT, graph);
+
+    return 0;
+}

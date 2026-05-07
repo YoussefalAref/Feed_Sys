@@ -11,6 +11,8 @@ This README serves two purposes:
 - Technical documentation for implementation and integration.
 - Presentation guide for Milestone 1 discussion.
 
+For the final stage-8 demo walkthrough, see [docs/final-demo-guide.md](docs/final-demo-guide.md).
+
 ---
 
 ## 1. Project Overview

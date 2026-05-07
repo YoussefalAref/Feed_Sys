@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <functional>
 
 // ---------------------------------------------------------------------------
 // Hash functions
@@ -30,7 +31,7 @@ int HashMap<int, std::string>::hashFunction(const int& key) const {
 // Generic fallback — callers using other key types must specialise this.
 template <typename K, typename V>
 int HashMap<K, V>::hashFunction(const K& key) const {
-    return 0; // override by adding a specialisation for your key type
+    return static_cast<int>(std::hash<K>{}(key) % capacity_);
 }
 
 // ---------------------------------------------------------------------------

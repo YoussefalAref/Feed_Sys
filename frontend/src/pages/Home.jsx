@@ -1,54 +1,74 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import ProductList from '../components/ProductList';
-import Toast from '../components/Toast';
-import { useShop } from '../context/ShopContext';
-import { products } from '../data/products';
-import { sortByPopularityWithHeap } from '../utils/heapSort';
+import { useEffect, useState } from 'react';
+import Feed from '../components/Feed';
+import RecommendationSection from '../components/RecommendationSection';
+import { getCurrentUser, getProducts, getRecommendations } from '../services/api';
 
-export default function Home() {
-  const { addToCart } = useShop();
+function Home() {
+  const [products, setProducts] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState('');
-  const toastTimerRef = useRef(null);
-
-  const trendingProducts = useMemo(() => sortByPopularityWithHeap(products), []);
+  const user = getCurrentUser();
+  const activeUser = user || { id: 1, name: 'Guest', category: 'Electronics' };
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 850);
-
-    return () => {
-      clearTimeout(timer);
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
+    async function loadHome() {
+      try {
+        const [productData, recommendationData] = await Promise.all([
+          getProducts(),
+          getRecommendations(activeUser.id),
+        ]);
+        setProducts(productData);
+        setRecommendations(recommendationData);
+      } catch (err) {
+        setError(err.message || 'Could not load the product feed.');
+      } finally {
+        setLoading(false);
       }
-    };
-  }, []);
-
-  const handleAddToCart = (product) => {
-    addToCart(product);
-    setToast(`${product.name} added to cart`);
-
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
     }
 
-    toastTimerRef.current = setTimeout(() => {
-      setToast('');
-    }, 1600);
+    loadHome();
+  }, [activeUser.id]);
+
+  const showMessage = (text) => {
+    setMessage(text);
+    setTimeout(() => setMessage(''), 2200);
   };
 
   return (
-    <section className="page home-page">
-      <div className="hero">
-        <p className="hero-kicker">Precision Recommendations</p>
-        <h1>Trending on BiteApple</h1>
-        <p className="hero-copy">
-          Discover products ranked by global popularity, powered by a heap-inspired feed.
-        </p>
-      </div>
+    <div className="page home-page">
+      <section className="hero-panel">
+        <div>
+          <p className="hero-kicker">Smart e-commerce engine</p>
+          <h1>Welcome {activeUser.name}.</h1>
+          <p className="hero-copy">
+            BiteApple turns clicks, carts, and purchases into a personalized product feed and
+            business-ready insight layer.
+          </p>
+        </div>
+        <div className="hero-stat">
+          <strong>{products.length}</strong>
+          <span>mock products live</span>
+        </div>
+      </section>
 
-      <ProductList products={trendingProducts} loading={loading} onAddToCart={handleAddToCart} />
-      <Toast message={toast} show={Boolean(toast)} />
-    </section>
+      {error && <p className="form-error">{error}</p>}
+      {loading ? (
+        <div className="empty-state">Loading product feed...</div>
+      ) : (
+        <>
+          <RecommendationSection
+            products={recommendations}
+            user={activeUser}
+            onCartChange={showMessage}
+          />
+          <Feed products={products} user={activeUser} onCartChange={showMessage} />
+        </>
+      )}
+      {message && <div className="toast">{message}</div>}
+    </div>
   );
 }
+
+export default Home;

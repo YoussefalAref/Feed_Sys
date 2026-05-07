@@ -21,6 +21,7 @@
 *.so
 *.dylib
 *.dll
+*.pyd
 
 # Fortran module files
 *.mod
@@ -39,3 +40,67 @@
 
 # debug information files
 *.dwo
+
+# C++/CMake build output
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.tsbuildinfo
+
+# Local tool/state folders
+.vs/
+ngrok/
+
+# Frontend dependencies and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-admin/
+frontend/.vite/
+.chrome-test-profile/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!backend/.env.example
+
+# Local planning and checklist docs
+docs/*plan*.md
+docs/*Plan*.md
+docs/*checklist*.md
+docs/*Checklist*.md
+docs/*Plan*.docx
+docs/*Implementation_Plan*.docx
+
+# Editor, OS, and log noise
+.vscode/
+.idea/
+*.log
+Thumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+*.db
+*.sqlite
+*.sqlite3
+backend/*.db-journal
+backend/*.db-shm
+backend/*.db-wal
+backend/*.sqlite-journal
+backend/*.sqlite-shm
+backend/*.sqlite-wal
+backend/biteapple_dev.db
