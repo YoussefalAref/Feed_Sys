@@ -61,6 +61,33 @@ def load_core() -> ModuleType | None:
     proxy = ModuleType("cpp_core_proxy")
     setattr(proxy, "_raw", cmod)
 
+    contract_names = [
+        "authenticate_user",
+        "create_user",
+        "get_user_by_id",
+        "list_products",
+        "get_product_by_id",
+        "create_product",
+        "update_product",
+        "delete_product",
+        "get_cart",
+        "add_to_cart",
+        "remove_from_cart",
+        "checkout",
+        "get_dashboard_stats",
+        "record_interaction",
+        "get_recent_interactions",
+        "get_recommendations",
+        "get_related_products",
+        "get_trending",
+        "rank_top_products",
+        "score_recommendations",
+    ]
+
+    for name in contract_names:
+        if hasattr(cmod, name):
+            setattr(proxy, name, getattr(cmod, name))
+
     def _get_related_products(products, item_id, limit=3):
         if hasattr(cmod, "get_related_products"):
             return cmod.get_related_products(products, item_id, limit)
@@ -81,33 +108,21 @@ def load_core() -> ModuleType | None:
             return cmod.rank_top_products(products, limit)
         raise NotImplementedError("C++ function 'get_trending' not available")
 
-    # Contract-facing aliases used by the Python services.
-    setattr(proxy, "get_related_products", _get_related_products)
-    setattr(proxy, "get_recent_interactions", _get_recent_interactions)
-    setattr(proxy, "get_recommendations", _get_recommendations)
-    setattr(proxy, "get_trending", _get_trending)
+    if not hasattr(proxy, "get_related_products"):
+        setattr(proxy, "get_related_products", _get_related_products)
+    if not hasattr(proxy, "get_recent_interactions"):
+        setattr(proxy, "get_recent_interactions", _get_recent_interactions)
+    if not hasattr(proxy, "get_recommendations"):
+        setattr(proxy, "get_recommendations", _get_recommendations)
+    if not hasattr(proxy, "get_trending"):
+        setattr(proxy, "get_trending", _get_trending)
 
-    # Keep the current raw names available while the C++ team fills in the contract.
-    setattr(proxy, "rank_top_products", getattr(cmod, "rank_top_products", _missing("C++ function 'rank_top_products' not available")))
-    setattr(proxy, "score_recommendations", getattr(cmod, "score_recommendations", _missing("C++ function 'score_recommendations' not available")))
+    if not hasattr(proxy, "rank_top_products"):
+        setattr(proxy, "rank_top_products", _missing("C++ function 'rank_top_products' not available"))
+    if not hasattr(proxy, "score_recommendations"):
+        setattr(proxy, "score_recommendations", _missing("C++ function 'score_recommendations' not available"))
 
-    # Contract stubs for functions not yet present in biteapple_core.
-    for name in [
-        "authenticate_user",
-        "create_user",
-        "get_user_by_id",
-        "list_products",
-        "get_product_by_id",
-        "create_product",
-        "update_product",
-        "delete_product",
-        "get_cart",
-        "add_to_cart",
-        "remove_from_cart",
-        "checkout",
-        "get_dashboard_stats",
-        "record_interaction",
-    ]:
+    for name in contract_names:
         if not hasattr(proxy, name):
             setattr(proxy, name, _missing(f"C++ function '{name}' not available"))
 

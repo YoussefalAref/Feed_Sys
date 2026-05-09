@@ -44,6 +44,8 @@ def add_to_cart(db: Session, user_id: int, item_id: int, quantity: int = 1) -> l
             result = core.add_to_cart(user_id, item_id, quantity)
             if isinstance(result, list):
                 return result
+            if isinstance(result, bool) and result:
+                return get_cart(db, user_id)
         except Exception:
             pass
 
@@ -69,6 +71,8 @@ def remove_from_cart(db: Session, user_id: int, item_id: int) -> list[dict]:
             result = core.remove_from_cart(user_id, item_id)
             if isinstance(result, list):
                 return result
+            if isinstance(result, bool):
+                return get_cart(db, user_id)
         except Exception:
             pass
 

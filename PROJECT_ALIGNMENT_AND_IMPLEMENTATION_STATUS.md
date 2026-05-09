@@ -1,13 +1,13 @@
 # Feed System - Project Alignment and Implementation Status
 
 **Date**: May 9, 2026  
-**Status**: Backend refactored to match C++ Binding Contract - Ready for C++ team implementation
+**Status**: Backend refactored to match C++ Binding Contract - Backup C++ core implemented
 
 ---
 
 ## Executive Summary
 
-This document outlines the alignment of the current project structure with the **Backend API and C++ Binding Contract**. The Python backend has been refactored to provide a **thin wrapper layer** that calls C++ core functions through pybind11 bindings.
+This document outlines the alignment of the current project structure with the **Backend API and C++ Binding Contract**. The Python backend provides a thin wrapper layer that calls C++ core functions through pybind11 bindings, and the C++ backup core now implements the full contract in-memory.
 
 ## Finalized Setup Plan
 
@@ -24,7 +24,7 @@ The Python services now follow this pattern:
 2. **Fall back to SQLAlchemy** (if C++ function not yet implemented)
 3. **Convert and return** data as per contract specifications
 
-This ensures compatibility while the C++ team implements the required functions.
+This ensures compatibility while also providing a fully working backup C++ implementation for the contract.
 
 ---
 
@@ -264,10 +264,8 @@ struct DashboardStats {
 
 ### Missing / Still Pending
 
-- C++ auth/user functions: `authenticate_user`, `create_user`, `get_user_by_id`
-- C++ product/cart/dashboard functions: `list_products`, `get_product_by_id`, `create_product`, `update_product`, `delete_product`, `get_cart`, `add_to_cart`, `remove_from_cart`, `checkout`, `get_dashboard_stats`
-- C++ interaction write-path: `record_interaction`
-- Payment flow remains outside the C++ core and must stay in the Python service layer
+- No contract functions are missing in the backup C++ core.
+- Remaining hardening work is optional: persistent C++ storage, password hashing hardening, and replacing the in-memory bootstrap data with a real loader if desired.
 
 ---
 
@@ -283,7 +281,8 @@ struct DashboardStats {
 | `interaction_service.py` | Wraps C++ interaction functions |
 | `recommendation_service.py` | Wraps C++ recommendation functions |
 | `dashboard_service.py` | Wraps C++ get_dashboard_stats() |
-| `cpp_core.py` | Enhanced documentation, better error handling |
+| `cpp_core.py` | Contract-facing shim and compatibility fallback |
+| `src/bindings/biteapple_core.cpp` | Full backup-plan C++ core implementation |
 
 ### Routes (Endpoints)
 
@@ -297,26 +296,18 @@ struct DashboardStats {
 
 ### Missing from Current C++ Implementation
 
-1. **User Authentication** - No C++ password hashing or token generation
-   - Workaround: Using Python's bcrypt + simple token generation
-   - Future: Move to JWT in C++
-
-2. **Product Management** - No C++ product CRUD
-   - Workaround: SQLAlchemy handles everything
-   - Future: Move to C++ HashMap-backed store
-
-3. **Cart Management** - No C++ cart operations
-   - Workaround: SQLAlchemy handles cart items
-   - Future: Move to C++ cart manager
-
-4. **Payment Integration** - Out of scope for C++ core
+1. **Payment Integration** - Out of scope for C++ core
    - Using Paymob payment gateway
    - Python handles payment flow
    - Not required in C++ contract
 
-5. **Full Interaction Tracking** - Only recommendation calculations in C++
-   - Database persistence still Python-based
-   - Graph building automatic when C++ functions available
+2. **Persistent C++ Storage** - The backup C++ core is in-memory
+  - Good for the backup plan and local demo
+  - Can be replaced later with a database-backed core if needed
+
+3. **Password Hashing Hardening** - The backup core stores credentials in-memory for demo purposes
+  - Good enough for the fallback implementation
+  - Replace with a stronger auth stack for production use
 
 ---
 
