@@ -15,7 +15,8 @@ int popularityScore;
 int stock;
 
 public:
-Item();
+Item() = default;
+Item(const std::string& id, const std::string& name, int popularityScore);
 Item(string id, string n, double p, string c, int pS, int s);
 string getID() const;
 string getName() const;
@@ -30,7 +31,6 @@ void setCategory(string c);
 void setPopularityScore(int ps);
 void setStock(int s);
 void incrementPopularityScore(int num);
-void updateScore(int interactionWeight);
 void resetPopularity();
 void displayItem() const;
 };

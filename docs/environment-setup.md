@@ -25,14 +25,11 @@ Install these before running the full project:
 - Python 3.11 or newer
 - Node.js and npm
 - PostgreSQL
-- C++ compiler/toolchain for Phase 5 and later
-- CMake for Phase 5 and later C++/pybind phases
-- pybind11, installed from `backend/requirements.txt`
 
 Optional for Phase 4.5 and later:
 
 - Paymob sandbox credentials
-- pybind11 build dependencies
+- C++ compiler, CMake, and pybind11 for the separate C++ team integration later
 
 ## Backend Setup
 
@@ -55,16 +52,16 @@ Edit `backend/.env` and set:
 
 ```text
 DATABASE_URL=postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/biteapple
-BITEAPPLE_CORE_PATH=../build/phase6/Debug
+```
 
 Important Paymob step (required for Phase 4.5 sandbox/live testing):
 
 - Copy the Paymob placeholder keys from `backend/.env.example` into `backend/.env`.
 - Set `PAYMOB_MOCK_MODE=false` and fill the following required fields from your
-	Paymob sandbox dashboard: `PAYMOB_API_KEY`, `PAYMOB_INTEGRATION_ID`,
-	`PAYMOB_PUBLIC_KEY`, `PAYMOB_HMAC_SECRET`, and `PAYMOB_WEBHOOK_URL`.
+  Paymob sandbox dashboard: `PAYMOB_API_KEY`, `PAYMOB_INTEGRATION_ID`,
+  `PAYMOB_PUBLIC_KEY`, `PAYMOB_HMAC_SECRET`, and `PAYMOB_WEBHOOK_URL`.
 - When testing locally with `ngrok`, start `ngrok` and update the Paymob
-	integration's Callback/Webhook URL to your current ngrok URL, for example:
+  integration's Callback/Webhook URL to your current ngrok URL, for example:
 
 ```
 https://<your-ngrok-id>.ngrok.io/paymob/webhook
@@ -72,7 +69,6 @@ https://<your-ngrok-id>.ngrok.io/paymob/webhook
 
 Note: ngrok URLs change on each run; update the Paymob integration webhook each
 time you restart ngrok.
-```
 
 Do not commit `backend/.env`.
 
@@ -181,41 +177,6 @@ rg "fetch\(|axios|XMLHttpRequest" frontend/src
 Expected result: direct HTTP calls should only appear in
 `frontend/src/services/api.js`.
 
-C++ ADS demo:
-
-```powershell
-cmake -S . -B build\phase5
-cmake --build build\phase5
-.\build\phase5\Debug\phase5_ads_demo.exe
-```
-
-On Windows, CMake can use Visual Studio Build Tools. If CMake cannot find a
-compiler, install Visual Studio Build Tools with the Desktop development with
-C++ workload, or install another C++17 compiler and rerun the commands above.
-
-pybind module:
-
-```powershell
-python -m pip install -r backend\requirements.txt
-cmake -S . -B build\phase6
-cmake --build build\phase6
-python backend\scripts\smoke_pybind.py
-```
-
-Backend C++ service check:
-
-```powershell
-cd backend
-python -m app.seed
-python -c "from app.services import cpp_core; print(cpp_core.is_available())"
-```
-
-Expected result:
-
-```text
-True
-```
-
 ## Environment Variables To Revisit Later
 
 When phases change, update this section.
@@ -253,55 +214,11 @@ GET /orders/{order_id}/payment
 POST /payments/orders/{order_id}/mock-paid
 ```
 
-### Phase 6-7: C++ / pybind
+### Future C++ / pybind
 
-Current Phase 5 C++ demo target:
-
-```text
-phase5_ads_demo
-```
-
-Current verified build path:
-
-```text
-build/phase5/Debug/phase5_ads_demo.exe
-```
-
-Current pybind module name:
-
-```text
-biteapple_core
-```
-
-Current verified pybind build path:
-
-```text
-build/phase6/Debug/biteapple_core.cp314-win_amd64.pyd
-```
-
-Current exposed functions:
-
-```text
-rank_top_products(products, limit)
-get_related_products(products, item_id, limit)
-get_recent_interactions(interactions, limit)
-score_recommendations(products, interactions, user, limit)
-```
-
-Python version used for verification:
-
-```text
-Python 3.14.4
-```
-
-Optional module path override:
-
-```text
-BITEAPPLE_CORE_PATH=../build/phase6/Debug
-```
-
-FastAPI will still run without this module, but recommendation, related-product,
-recent-interaction, and trending logic will fall back to Python.
+The C++ core is intentionally not included in this version. The C++ team should
+build against `docs/cpp-core-function-contract.md`, then add the pybind module
+after the backend/frontend API is stable.
 
 ## Troubleshooting
 

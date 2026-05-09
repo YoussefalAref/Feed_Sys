@@ -1,7 +1,7 @@
 # BiteApple Dummy FastAPI Backend
 
 This backend started as the Phase 2 dummy API and now has SQLAlchemy
-persistence, pybind/C++ service integration, and a Paymob-ready checkout flow.
+persistence and a Paymob-ready checkout flow.
 
 ## Database
 
@@ -44,3 +44,6 @@ Open:
 - Checkout creates an order, stores an order-item snapshot, starts a Paymob
   payment attempt, and keeps the cart until payment is marked paid.
 - Use `PAYMOB_MOCK_MODE=true` for local demo checkout without sandbox credentials.
+- The C++ recommendation core is intentionally not included in this version.
+  See `docs/cpp-core-function-contract.md` for the function contract the C++
+  team should implement before pybind/FastAPI integration.

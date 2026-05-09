@@ -3,15 +3,6 @@
 #include <string>
 using namespace std;
 
-Item::Item(){
-   ID = "";
-   name = "";
-   price = 0.0;
-   category = "";
-   popularityScore = 0;
-   stock = 0;
-}
-
 Item::Item(string id, string n, double p, string c, int pS, int s){
    ID = id;
    name = n;
@@ -70,10 +61,6 @@ void Item::setStock(int s){
 
 void Item::incrementPopularityScore(int num){
     popularityScore += num;
-}
-
-void Item::updateScore(int interactionWeight){
-    incrementPopularityScore(interactionWeight);
 }
 
 void Item::resetPopularity(){

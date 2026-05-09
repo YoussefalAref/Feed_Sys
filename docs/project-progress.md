@@ -23,9 +23,9 @@ done, what is blocked, and what should happen next.
 | Phase 3: Connect frontend to dummy FastAPI | `[x]` | Use as the working full-stack dev setup |
 | Phase 4: Add PostgreSQL persistence | `[~]` | Code is implemented; follow `docs/environment-setup.md` on target machine |
 | Phase 4.5: Add Fawry payment flow | `[~]` | Mock mode works; real sandbox needs merchant credentials |
-| Phase 5: Build C++ ADS core separately | `[x]` | Keep separate until pybind phase |
-| Phase 6: Add pybind integration | `[x]` | Ready for Phase 7 service integration |
-| Phase 7: Use C++ inside FastAPI | `[x]` | C++ is now used by recommendation/ranking services |
+| Phase 5: Build C++ ADS core separately | `[ ]` | C++ team owns this; use `docs/cpp-core-function-contract.md` |
+| Phase 6: Add pybind integration | `[ ]` | Start after C++ core functions are delivered |
+| Phase 7: Use C++ inside FastAPI | `[ ]` | Start after pybind module passes smoke tests |
 
 ## Golden Rules
 
@@ -206,20 +206,20 @@ Goal: implement and test the ADS logic independently from frontend and FastAPI.
 
 | Task | Status | Evidence / Notes |
 |---|---|---|
-| Confirm C++ folder structure | `[x]` | CMake target uses `src/models` and `src/data_structures` |
-| Implement user/item/interaction models | `[x]` | User, Item, and Interaction compile in demo target |
-| Implement HashMap lookup layer | `[x]` | Demo performs user and item lookups |
-| Implement interaction queue | `[x]` | Demo processes 15 interactions FIFO |
-| Implement ranking heap/top-K | `[x]` | Demo prints top 5 products by score |
-| Implement graph related-products logic | `[x]` | Demo builds same-category graph and prints neighbors |
-| Implement recommendation scoring | `[x]` | Demo combines popularity, category boost, and graph signal |
-| Add C++ tests or demo driver | `[x]` | `phase5_ads_demo` builds and runs through CMake |
+| Confirm C++ folder structure | `[ ]` | C++ team to provide; see contract doc |
+| Implement user/item/interaction models | `[ ]` | Match DTO fields from contract |
+| Implement HashMap lookup layer | `[ ]` | Dashboard/category lookup support |
+| Implement interaction queue | `[ ]` | Recent events in order |
+| Implement ranking heap/top-K | `[ ]` | `rank_top_products(products, limit)` |
+| Implement graph related-products logic | `[ ]` | `get_related_products(products, item_id, limit)` |
+| Implement recommendation scoring | `[ ]` | `get_recommendations(user, products, interactions, limit)` |
+| Add C++ tests or demo driver | `[ ]` | Must verify all contract functions |
 
 Phase 5 Done When:
 
-- [x] C++ builds independently.
-- [x] Data-structure behavior is demonstrable.
-- [x] Recommendation/ranking examples work without Python.
+- [ ] C++ builds independently.
+- [ ] Data-structure behavior is demonstrable.
+- [ ] Recommendation/ranking examples work without Python.
 
 ## Phase 6: Add pybind Integration
 
@@ -227,18 +227,18 @@ Goal: expose tested C++ functions to Python.
 
 | Task | Status | Evidence / Notes |
 |---|---|---|
-| Add pybind dependency/build config | `[x]` | `pybind11` added to requirements and CMake |
-| Create binding module | `[x]` | Module name: `biteapple_core` |
-| Expose ranking functions | `[x]` | `rank_top_products(products, limit)` |
-| Expose interaction functions | `[x]` | `get_recent_interactions(interactions, limit)` |
-| Expose related-products functions | `[x]` | `get_related_products(products, item_id, limit)` |
-| Add Python binding smoke test | `[x]` | `python backend\scripts\smoke_pybind.py` |
+| Add pybind dependency/build config | `[ ]` | Add only after C++ core exists |
+| Create binding module | `[ ]` | Required module name: `biteapple_core` |
+| Expose ranking functions | `[ ]` | `rank_top_products(products, limit)` |
+| Expose interaction functions | `[ ]` | `get_recent_interactions(interactions, limit)` |
+| Expose related-products functions | `[ ]` | `get_related_products(products, item_id, limit)` |
+| Add Python binding smoke test | `[ ]` | Import module and call each function |
 
 Phase 6 Done When:
 
-- [x] Python can import the compiled C++ module.
-- [x] All exposed functions return testable values.
-- [x] Frontend remains unchanged.
+- [ ] Python can import the compiled C++ module.
+- [ ] All exposed functions return testable values.
+- [ ] Frontend remains unchanged.
 
 ## Phase 7: Use C++ Inside FastAPI
 
@@ -247,19 +247,19 @@ logic.
 
 | Task | Status | Evidence / Notes |
 |---|---|---|
-| Load clean DB data in Python services | `[x]` | SQLAlchemy rows serialize to plain dicts before C++ |
-| Pass ranking inputs to C++ | `[x]` | Services pass products, interactions, and user dicts |
-| Use C++ for recommendations | `[x]` | `GET /recommendations/{user_id}` uses `score_recommendations` |
-| Use C++ for related products | `[x]` | `GET /products/{item_id}/related` uses graph binding |
-| Use C++ for recent/ranking logic where appropriate | `[x]` | Recent interactions and trending ranking use C++ when available |
-| Preserve frontend response shapes | `[x]` | Product fields preserved; recommendation adds `recommendation_score` |
+| Load clean DB data in Python services | `[ ]` | Python services currently use fallback logic |
+| Pass ranking inputs to C++ | `[ ]` | Start after `biteapple_core` exists |
+| Use C++ for recommendations | `[ ]` | Future `GET /recommendations/{user_id}` integration |
+| Use C++ for related products | `[ ]` | Future `GET /products/{item_id}/related` integration |
+| Use C++ for recent/ranking logic where appropriate | `[ ]` | Future recent/trending integration |
+| Preserve frontend response shapes | `[ ]` | Must remain unchanged during integration |
 
 Phase 7 Done When:
 
-- [x] Recommendations route uses C++.
-- [x] Related products route uses C++.
-- [x] Interaction/ranking behavior remains stable.
-- [x] API contract still matches frontend expectations.
+- [ ] Recommendations route uses C++.
+- [ ] Related products route uses C++.
+- [ ] Interaction/ranking behavior remains stable.
+- [ ] API contract still matches frontend expectations.
 
 ## Phase 8: Final Testing And Demo Polish
 
@@ -315,31 +315,6 @@ git status --short
 rg "fetch\(|axios|XMLHttpRequest" frontend/src
 ```
 
-C++ ADS demo:
-
-```powershell
-cmake -S . -B build\phase5
-cmake --build build\phase5
-.\build\phase5\Debug\phase5_ads_demo.exe
-```
-
-pybind module:
-
-```powershell
-python -m pip install -r backend\requirements.txt
-cmake -S . -B build\phase6
-cmake --build build\phase6
-python backend\scripts\smoke_pybind.py
-```
-
-Backend C++ service check:
-
-```powershell
-cd backend
-python -m app.seed
-python -c "from app.services import cpp_core; print(cpp_core.is_available())"
-```
-
 Fawry mock checkout:
 
 ```powershell
@@ -366,8 +341,5 @@ Add one line after each work session:
 | 2026-05-07 | 2 | Dummy FastAPI backend added with in-memory services and route aliases | Swagger and endpoint smoke test passed | Phase 3: switch `api.js` internals to fetch |
 | 2026-05-07 | 3 | Frontend service layer switched from mock state to FastAPI fetch calls | user/admin builds, direct fetch search, browser smoke test | Phase 4: PostgreSQL persistence |
 | 2026-05-07 | 4 | SQLAlchemy database layer added with users, items, interactions, cart, orders, payment attempts, seed data, and password hashing | seed, backend smoke test, persistence after restart, frontend/admin builds | Configure real PostgreSQL URL, then Phase 4.5 Fawry |
-| 2026-05-07 | 5 | C++ ADS demo and CMake target added; model/include/hash fixes applied | CMake configure, CMake build, demo executable run | Decide whether to do Phase 4.5 Fawry or Phase 6 pybind next |
-| 2026-05-07 | 6 | `biteapple_core` pybind module added for ranking, recent interactions, related products, and recommendations | CMake configure/build and Python smoke test passed | Phase 7: call C++ module from FastAPI services |
-| 2026-05-07 | 7 | FastAPI services now call `biteapple_core` for recommendations, related products, trending ranking, and recent interactions | service-level C++ availability and response-shape checks passed | Choose Phase 4.5 Fawry or Phase 8 final polish |
 | 2026-05-07 | 4.5 | Fawry reference-payment flow added with order snapshots, payment attempts, status endpoints, and mock-paid demo path | backend mock checkout/status/paid routes, user/admin frontend builds | Add real Fawry sandbox credentials on target machine |
-| 2026-05-07 | 8 | Added final demo guide and README pointer; verified backend `/docs`, frontend production build, and C++ bridge import | backend `/docs` returned 200, frontend build passed, `cpp_core.is_available()` returned true | Finish any target-machine Paymob sandbox rehearsal and present the demo |
+| 2026-05-07 | 5-7 | Removed backup C++ core from this version and added the future C++ function contract | Python fallback services ready for C++ team handoff | C++ team implements `docs/cpp-core-function-contract.md` |
