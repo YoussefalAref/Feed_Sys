@@ -2,12 +2,22 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app import models
+from app.services import cpp_core
 from app.services import interaction_service
 from app.services import payment_service
 from app.services.serialization import cart_item_to_dict
 
 
 def get_cart(db: Session, user_id: int) -> list[dict]:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "get_cart"):
+        try:
+            result = core.get_cart(user_id)
+            if isinstance(result, list):
+                return result
+        except Exception:
+            pass
+
     rows = (
         db.query(models.CartItem)
         .filter(models.CartItem.user_id == user_id)
@@ -28,6 +38,15 @@ def add_to_cart(db: Session, user_id: int, item_id: int, quantity: int = 1) -> l
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    core = cpp_core.load_core()
+    if core and hasattr(core, "add_to_cart"):
+        try:
+            result = core.add_to_cart(user_id, item_id, quantity)
+            if isinstance(result, list):
+                return result
+        except Exception:
+            pass
+
     existing = (
         db.query(models.CartItem)
         .filter(models.CartItem.user_id == user_id, models.CartItem.item_id == item_id)
@@ -44,6 +63,15 @@ def add_to_cart(db: Session, user_id: int, item_id: int, quantity: int = 1) -> l
 
 
 def remove_from_cart(db: Session, user_id: int, item_id: int) -> list[dict]:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "remove_from_cart"):
+        try:
+            result = core.remove_from_cart(user_id, item_id)
+            if isinstance(result, list):
+                return result
+        except Exception:
+            pass
+
     row = (
         db.query(models.CartItem)
         .filter(models.CartItem.user_id == user_id, models.CartItem.item_id == item_id)
@@ -68,6 +96,15 @@ def checkout(db: Session, user_id: int) -> dict:
     )
     if not current_cart:
         raise HTTPException(status_code=400, detail="Cart is empty")
+
+    core = cpp_core.load_core()
+    if core and hasattr(core, "checkout"):
+        try:
+            result = core.checkout(user_id)
+            if result is not None:
+                return result
+        except Exception:
+            pass
 
     total = sum(row.item.price * row.quantity for row in current_cart)
     order = models.Order(user_id=user_id, total=total, payment_status="pending")

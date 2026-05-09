@@ -38,35 +38,38 @@ def get_recommendations(db: Session, user_id: int, limit: int = 4) -> list[dict]
 
     core = cpp_core.load_core()
     if core and user:
-        interactions = (
-            db.query(models.Interaction)
-            .filter(models.Interaction.user_id == user_id)
-            .order_by(models.Interaction.timestamp.asc(), models.Interaction.id.asc())
-            .all()
-        )
-        core_recommendations = core.score_recommendations(
-            product_dicts,
-            [
+        try:
+            interactions = (
+                db.query(models.Interaction)
+                .filter(models.Interaction.user_id == user_id)
+                .order_by(models.Interaction.timestamp.asc(), models.Interaction.id.asc())
+                .all()
+            )
+            core_recommendations = core.get_recommendations(
+                product_dicts,
+                [
+                    {
+                        "user_id": interaction.user_id,
+                        "item_id": interaction.item_id,
+                        "type": interaction.type,
+                        "timestamp": interaction.timestamp.isoformat(),
+                    }
+                    for interaction in interactions
+                ],
                 {
-                    "user_id": interaction.user_id,
-                    "item_id": interaction.item_id,
-                    "type": interaction.type,
-                    "timestamp": interaction.timestamp.isoformat(),
-                }
-                for interaction in interactions
-            ],
-            {
-                "id": user.id,
-                "email": user.email,
-                "category": user.category,
-            },
-            limit,
-        )
-        return _merge_core_products(
-            core_recommendations,
-            {product["id"]: product for product in product_dicts},
-            score_field="recommendation_score",
-        )
+                    "id": user.id,
+                    "email": user.email,
+                    "category": user.category,
+                },
+                limit,
+            )
+            return _merge_core_products(
+                core_recommendations,
+                {product["id"]: product for product in product_dicts},
+                score_field="recommendation_score",
+            )
+        except Exception:
+            pass
 
     preferred = user.category if user else None
     recommended = [
@@ -90,11 +93,14 @@ def get_related_products(db: Session, item_id: int, limit: int = 3) -> list[dict
 
     core = cpp_core.load_core()
     if core:
-        core_related = core.get_related_products(product_dicts, item_id, limit)
-        return _merge_core_products(
-            core_related,
-            {item["id"]: item for item in product_dicts},
-        )
+        try:
+            core_related = core.get_related_products(product_dicts, item_id, limit)
+            return _merge_core_products(
+                core_related,
+                {item["id"]: item for item in product_dicts},
+            )
+        except Exception:
+            pass
 
     related = (
         db.query(models.Item)
@@ -116,10 +122,13 @@ def get_trending(db: Session, limit: int = 8) -> list[dict]:
 
     core = cpp_core.load_core()
     if core:
-        core_ranked = core.rank_top_products(product_dicts, limit)
-        return _merge_core_products(
-            core_ranked,
-            {product["id"]: product for product in product_dicts},
-        )
+        try:
+            core_ranked = core.get_trending(product_dicts, limit)
+            return _merge_core_products(
+                core_ranked,
+                {product["id"]: product for product in product_dicts},
+            )
+        except Exception:
+            pass
 
     return product_dicts[:limit]

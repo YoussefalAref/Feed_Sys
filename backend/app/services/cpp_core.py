@@ -21,14 +21,23 @@ def _candidate_dirs() -> list[Path]:
         candidates.append(path if path.is_dir() else path.parent)
 
     build_dir = _repo_root() / "build"
-    candidates.extend(path.parent for path in build_dir.glob("phase6/**/biteapple_core*.pyd"))
-    candidates.extend(path.parent for path in build_dir.glob("phase6/**/biteapple_core*.so"))
+    candidates.extend(path.parent for path in build_dir.glob("**/biteapple_core*.pyd"))
+    candidates.extend(path.parent for path in build_dir.glob("**/biteapple_core*.so"))
 
     return candidates
 
 
+def _missing(message: str):
+    def _raiser(*_args, **_kwargs):
+        raise NotImplementedError(message)
+
+    return _raiser
+
+
 @lru_cache(maxsize=1)
 def load_core() -> ModuleType | None:
+    cmod: ModuleType | None = None
+
     for candidate in _candidate_dirs():
         if not candidate.exists():
             continue
@@ -38,14 +47,71 @@ def load_core() -> ModuleType | None:
             sys.path.insert(0, candidate_str)
 
         try:
-            return importlib.import_module("biteapple_core")
+            cmod = importlib.import_module("biteapple_core")
+            break
         except ImportError:
             continue
 
-    try:
-        return importlib.import_module("biteapple_core")
-    except ImportError:
-        return None
+    if cmod is None:
+        try:
+            cmod = importlib.import_module("biteapple_core")
+        except ImportError:
+            return None
+
+    proxy = ModuleType("cpp_core_proxy")
+    setattr(proxy, "_raw", cmod)
+
+    def _get_related_products(products, item_id, limit=3):
+        if hasattr(cmod, "get_related_products"):
+            return cmod.get_related_products(products, item_id, limit)
+        raise NotImplementedError("C++ function 'get_related_products' not available")
+
+    def _get_recent_interactions(interactions, limit=8):
+        if hasattr(cmod, "get_recent_interactions"):
+            return cmod.get_recent_interactions(interactions, limit)
+        raise NotImplementedError("C++ function 'get_recent_interactions' not available")
+
+    def _get_recommendations(products, interactions, user, limit=4):
+        if hasattr(cmod, "score_recommendations"):
+            return cmod.score_recommendations(products, interactions, user, limit)
+        raise NotImplementedError("C++ function 'get_recommendations' not available")
+
+    def _get_trending(products, limit=5):
+        if hasattr(cmod, "rank_top_products"):
+            return cmod.rank_top_products(products, limit)
+        raise NotImplementedError("C++ function 'get_trending' not available")
+
+    # Contract-facing aliases used by the Python services.
+    setattr(proxy, "get_related_products", _get_related_products)
+    setattr(proxy, "get_recent_interactions", _get_recent_interactions)
+    setattr(proxy, "get_recommendations", _get_recommendations)
+    setattr(proxy, "get_trending", _get_trending)
+
+    # Keep the current raw names available while the C++ team fills in the contract.
+    setattr(proxy, "rank_top_products", getattr(cmod, "rank_top_products", _missing("C++ function 'rank_top_products' not available")))
+    setattr(proxy, "score_recommendations", getattr(cmod, "score_recommendations", _missing("C++ function 'score_recommendations' not available")))
+
+    # Contract stubs for functions not yet present in biteapple_core.
+    for name in [
+        "authenticate_user",
+        "create_user",
+        "get_user_by_id",
+        "list_products",
+        "get_product_by_id",
+        "create_product",
+        "update_product",
+        "delete_product",
+        "get_cart",
+        "add_to_cart",
+        "remove_from_cart",
+        "checkout",
+        "get_dashboard_stats",
+        "record_interaction",
+    ]:
+        if not hasattr(proxy, name):
+            setattr(proxy, name, _missing(f"C++ function '{name}' not available"))
+
+    return proxy
 
 
 def is_available() -> bool:

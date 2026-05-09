@@ -21,6 +21,15 @@ def record_interaction(db: Session, user_id: int, item_id: int, interaction_type
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    core = cpp_core.load_core()
+    if core and hasattr(core, "record_interaction"):
+        try:
+            result = core.record_interaction(user_id, item_id, interaction_type)
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
     interaction = models.Interaction(
         user_id=user_id,
         item_id=item_id,
@@ -53,3 +62,7 @@ def recent_interactions(db: Session, limit: int = 8) -> list[dict]:
         .all()
     )
     return [interaction_to_dict(interaction) for interaction in interactions]
+
+
+def get_recent_interactions(db: Session, limit: int = 8) -> list[dict]:
+    return recent_interactions(db, limit)

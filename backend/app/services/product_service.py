@@ -2,10 +2,20 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app import models
+from app.services import cpp_core
 from app.services.serialization import product_to_dict
 
 
 def list_products(db: Session, category: str | None = None) -> list[dict]:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "list_products"):
+        try:
+            result = core.list_products(category or "")
+            if isinstance(result, list):
+                return result
+        except Exception:
+            pass
+
     query = db.query(models.Item)
     if category:
         query = query.filter(models.Item.category.ilike(category))
@@ -13,6 +23,15 @@ def list_products(db: Session, category: str | None = None) -> list[dict]:
 
 
 def get_product(db: Session, item_id: int) -> dict:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "get_product_by_id"):
+        try:
+            result = core.get_product_by_id(item_id)
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
     product = db.get(models.Item, item_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -20,6 +39,15 @@ def get_product(db: Session, item_id: int) -> dict:
 
 
 def create_product(db: Session, payload: dict) -> dict:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "create_product"):
+        try:
+            result = core.create_product(payload)
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
     product = models.Item(
         name=payload["name"],
         price=float(payload["price"]),
@@ -36,6 +64,15 @@ def create_product(db: Session, payload: dict) -> dict:
 
 
 def update_product(db: Session, item_id: int, payload: dict) -> dict:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "update_product"):
+        try:
+            result = core.update_product(item_id, payload)
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
     product = db.get(models.Item, item_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -53,6 +90,15 @@ def update_product(db: Session, item_id: int, payload: dict) -> dict:
 
 
 def delete_product(db: Session, item_id: int) -> dict:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "delete_product"):
+        try:
+            result = core.delete_product(item_id)
+            if result is not None:
+                return {"success": bool(result)}
+        except Exception:
+            pass
+
     product = db.get(models.Item, item_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")

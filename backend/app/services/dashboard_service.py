@@ -2,9 +2,19 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models
+from app.services import cpp_core
 
 
 def get_dashboard_stats(db: Session) -> dict:
+    core = cpp_core.load_core()
+    if core and hasattr(core, "get_dashboard_stats"):
+        try:
+            result = core.get_dashboard_stats()
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
     category_counts = (
         db.query(models.Item.category, func.sum(models.Item.popularity_score))
         .group_by(models.Item.category)
