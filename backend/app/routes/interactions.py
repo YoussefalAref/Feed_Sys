@@ -20,4 +20,4 @@ def record_interaction(payload: InteractionInput, db: Session = Depends(get_db))
 
 @router.get("/recent")
 def recent_interactions(limit: int = 8, db: Session = Depends(get_db)) -> list[dict]:
-    return interaction_service.recent_interactions(db, limit)
+    return interaction_service.get_recent_interactions(db, limit)
