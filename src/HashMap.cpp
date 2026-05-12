@@ -1,5 +1,6 @@
 #include "HashMap.h"
 #include "Item.h"
+#include "User.h"
 #include <iostream>
 #include <string>
 using namespace std;
@@ -172,7 +173,9 @@ Vector<V> HashMap<K,V>::getAll(){
     return allItems;
 }
 // explicit instantiation of the template class
-template class HashMap<string, Item>;
+template class HashMap<int, User>;     
+template class HashMap<int, Item>;      
+template class HashMap<std::string, User>; 
 
 
 

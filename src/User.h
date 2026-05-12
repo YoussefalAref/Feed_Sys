@@ -1,6 +1,7 @@
 #ifndef USER_H
 #define USER_H
 
+
 /*
 * ============================================================
 *  FILE: src/models/User.h
@@ -90,6 +91,8 @@
 
 #include <string>
 #include <ctime>
+#include "DTOs.h"
+#include "HashMap.h"
 
 class User {
 public:
@@ -111,6 +114,8 @@ public:
     const std::string& getCategory()    const;
     float              getScore()       const;
     time_t             getCreatedAt()   const;
+    const std::string& getName()   const;
+    const std::string& getRegion() const;
 
     // Activity score components (views×1, clicks×2, cartAdds×5, purchases×10)
     int  getViews()     const;
@@ -125,6 +130,8 @@ public:
     void setPasswordHash(const std::string& hash);
     void setCategory(const std::string& category);
     void setScore(float score);
+    void setName(const std::string& name);
+    void setRegion(const std::string& region);
 
     // Increment activity counters and recompute level
     void addViews(int n = 1);
@@ -141,6 +148,8 @@ private:
     std::string email_;
     std::string passwordHash_;
     std::string category_;
+    std::string name_;
+    std::string region_;
     float       score_;
     time_t      createdAt_;
 
@@ -154,5 +163,16 @@ private:
     // Recomputes userLevel_ from current activity counters
     void updateLevel();
 };
+#include "DTOs.h"      // UserInput, UserDTO, AuthResult
+#include "HashMap.h"
+ 
+// ---- Free functions — the symbols registered with pybind11 ----
+AuthResult authenticate_user(const std::string& email,
+                             const std::string& password);
+ 
+AuthResult create_user(const UserInput& input);
+ 
+UserDTO    get_user_by_id(int user_id);
+ 
 
 #endif // USER_H
