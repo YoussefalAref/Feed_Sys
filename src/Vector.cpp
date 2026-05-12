@@ -85,6 +85,16 @@ bool Vector<T>::isEmpty() const{
     return false;
 }
 
+template<typename T>
+void Vector<T>::set(int index, T value)
+{
+    if(index >= 0 && index < size)
+    {
+        arr[index] = value;
+    }
+}
+
+
 template class Vector<Item>;
 // Explicitly instantiate Vector for the DTO types
 template class Vector<RecommendationDTO>;

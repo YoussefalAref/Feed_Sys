@@ -2,6 +2,7 @@
 #define ITEM_H
 #include <iostream>
 #include <string>
+#include "Vector.h"
 using namespace std;
 
 
@@ -33,5 +34,30 @@ void setStock(int s);
 void incrementPopularityScore(int num);
 void resetPopularity();
 void displayItem() const;
+
+
+    // product functions
+    static Vector<ProductDTO> list_products(const string& category);
+
+    static ProductDTO get_product_by_id(int item_id);
+
+    static ProductDTO create_product(const ProductInput& input);
+
+    static ProductDTO update_product(int item_id, const ProductInput& input);
+
+    static bool delete_product(int item_id);
+
+    // cart functions
+    static Vector<CartItemDTO> get_cart(int user_id);
+
+    static bool add_to_cart(int user_id, int item_id, int quantity);
+
+    static bool remove_from_cart(int user_id, int item_id);
+
+    static CheckoutResult checkout(int user_id);
+
+    // dashboard
+    static DashboardStats get_dashboard_stats();
+
 };
 #endif

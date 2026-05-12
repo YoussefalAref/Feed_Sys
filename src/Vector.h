@@ -21,5 +21,9 @@ class Vector{
     int getCapacity() const;
     int getSize() const;
     bool isEmpty() const;
+
+    void set(int index, T value);
+
+    
 };
 #endif
