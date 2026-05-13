@@ -4,6 +4,10 @@
 #include "Item.h"
 #include "Interaction.h"
 #include "Graph.h"
+#include "Vector.h"
+#include "InteractionManager.h"
+#include "DTOs.h"
+#include "DataStore.h"
 #include <string>
 using namespace std;
 
@@ -19,8 +23,11 @@ private:
 
     Interaction* interactions;
     int interactionCount;
-
+    
 public:
+    Vector<RecommendationDTO> get_recommendations(int user_id, int limit);
+    Vector<RelatedProductDTO> get_related_products(int item_id, int limit);
+    Vector<ProductDTO> get_trending(int limit);
     RecommendationEngine();
 
     void loadData();

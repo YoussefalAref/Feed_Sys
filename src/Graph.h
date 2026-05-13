@@ -1,7 +1,7 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-#include "../models/Item.h"
+#include "Item.h"
 #include <string>
 using namespace std;
 

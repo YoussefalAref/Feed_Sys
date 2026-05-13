@@ -5,7 +5,8 @@ Use this guide for the stage 8 presentation and the final push-ready demo.
 ## What To Show
 
 1. Open the frontend and sign up or log in with a seeded account.
-2. Browse products and explain that recommendations are produced by the C++ core.
+2. Browse products and explain that this version uses Python fallback
+   recommendation logic until the C++ team delivers the core contract.
 3. Add an item to the cart and start checkout.
 4. Show the payment status flow and explain that Paymob uses mock mode locally unless real sandbox credentials are set.
 5. Open the admin dashboard and demonstrate add, edit, and delete product actions.
@@ -38,16 +39,6 @@ cd frontend
 npm.cmd run dev:admin
 ```
 
-If you need the C++/pybind demo build first:
-
-```powershell
-cmake -S . -B build\phase5
-cmake --build build\phase5
-cmake -S . -B build\phase6
-cmake --build build\phase6
-python backend\scripts\smoke_pybind.py
-```
-
 ## Expected URLs
 
 - User app: `http://127.0.0.1:5173/`
@@ -56,7 +47,9 @@ python backend\scripts\smoke_pybind.py
 
 ## Key Grader Notes
 
-- The recommendation engine runs through the C++ core exposed to Python.
+- The C++ core is intentionally not included in this version. The required
+  function prototypes are documented in `docs/cpp-core-function-contract.md`.
 - The payment flow is Paymob-oriented and supports local mock checkout.
 - The database can run on PostgreSQL in the target setup, with SQLite as the local fallback.
-- The main data structures to mention are the hash map, queue, max heap, and graph.
+- The future C++ core should use the agreed hash map, queue, max heap, and graph
+  responsibilities from the contract document.

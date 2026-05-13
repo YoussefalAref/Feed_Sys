@@ -25,7 +25,7 @@ void RecommendationEngine::loadData() {
     graph.build(items, itemCount);
 }
 
-bool RecommendationEngine::exists(Item arr[], int count, string itemId) {
+bool RecommendationEngine::exists(Item arr[], int count, std::string itemId) {
     for (int i = 0; i < count; i++) {
         if (arr[i].getID() == itemId)
             return true;
@@ -42,7 +42,7 @@ int RecommendationEngine::getCandidates(int userId, Item candidates[]) {
 
         if (interactions[i].getUserID() == userId) {
 
-            string itemId = to_string(interactions[i].getItemID());
+            std::string itemId = intToString(interactions[i].getItemID());
 
             if (!exists(candidates, count, itemId)) {
 
@@ -130,7 +130,7 @@ double RecommendationEngine::getSimilarity(int userId, string itemId) {
 
             int neighborCount;
             string* neighbors =
-                graph.getNeighbors(to_string(interactions[i].getItemID()), neighborCount);
+                graph.getNeighbors(intToString(interactions[i].getItemID() ), neighborCount);
 
             for (int j = 0; j < neighborCount; j++) {
                 if (neighbors[j] == itemId)
@@ -155,11 +155,96 @@ double RecommendationEngine::getCategoryScore(int userId, Item& item) {
 double RecommendationEngine::getRecency(int userId, string itemId) {
 
     for (int i = 0; i < interactionCount; i++) {
-        if (interactions[i].getUserID() == userId &&
-            to_string(interactions[i].getItemID()) == itemId) {
+        if (interactions[i].getUserID() == userId && intToString(interactions[i].getItemID()) == itemId) {
             return 1.0;
         }
     }
 
     return 0.0;
+}
+
+Vector<RecommendationDTO> RecommendationEngine::get_recommendations(int user_id, int limit) {
+    Item candidates[100]; // Array for existing logic
+    int count = getCandidates(user_id, candidates);
+    
+    double scores[100];
+    scoreItems(user_id, candidates, count, scores);
+
+    // Manual Bubble Sort (Highest score first)
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (scores[j] < scores[j + 1]) {
+                // Swap scores and items
+                double tempS = scores[j]; scores[j] = scores[j+1]; scores[j+1] = tempS;
+                Item tempI = candidates[j]; candidates[j] = candidates[j+1]; candidates[j+1] = tempI;
+            }
+        }
+    }
+
+    Vector<RecommendationDTO> results;
+    for (int i = 0; i < count && i < limit; i++) {
+        RecommendationDTO rec;
+        rec.product.id = std::stoi(candidates[i].getID());
+        rec.product.name = candidates[i].getName();
+        rec.recommendation_score = scores[i];
+        rec.reason = "Based on your interest in " + candidates[i].getCategory();
+        results.push_back(rec);
+    }
+    return results;
+}
+
+Vector<RelatedProductDTO> RecommendationEngine::get_related_products(int item_id, int limit) {
+    Vector<RelatedProductDTO> related;
+    int neighborCount = 0;
+    
+    // Get neighbors from your custom Graph
+    string* neighbors = graph.getNeighbors(intToString(item_id), neighborCount);
+
+    for (int i = 0; i < neighborCount && i < limit; i++) {
+        RelatedProductDTO rDTO;
+        // Search for the neighbor item in your storage to get its name/price
+        Item neighborItem = itemStore.search(neighbors[i]);
+        
+        rDTO.product.id = std::stoi(neighbors[i]);
+        rDTO.product.name = neighborItem.getName();
+        rDTO.similarity_score = 0.85; // Example constant or calculated weight
+        
+        related.push_back(rDTO);
+    }
+    return related;
+}
+
+// Inside RecommendationEngine.cpp
+
+Vector<ProductDTO> RecommendationEngine::get_trending(int limit) {
+    Vector<ProductDTO> trendingList;
+    
+    // 1. Get all items from your storage
+    int totalItems = 0;
+    Item* allItems = getAllItems(totalItems); // Your existing helper
+
+    // 2. Manual Sort (since no STL std::sort)
+    // We sort by popularity score in descending order
+    for (int i = 0; i < totalItems - 1; i++) {
+        for (int j = 0; j < totalItems - i - 1; j++) {
+            if (allItems[j].getPopularityScore() < allItems[j + 1].getPopularityScore()) {
+                Item temp = allItems[j];
+                allItems[j] = allItems[j + 1];
+                allItems[j + 1] = temp;
+            }
+        }
+    }
+
+    // 3. Convert the top 'limit' items to ProductDTOs
+    for (int i = 0; i < totalItems && i < limit; i++) {
+        ProductDTO dto;
+        dto.id = std::stoi(allItems[i].getID());
+        dto.name = allItems[i].getName();
+        dto.popularity_score = allItems[i].getPopularityScore();
+        // Add other required fields from your ProductDTO definition
+        
+        trendingList.push_back(dto);
+    }
+
+    return trendingList;
 }
