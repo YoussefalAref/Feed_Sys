@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { addToCart, recordInteraction } from '../services/api';
+import ProductImage from './ProductImage';
 
 function ProductCard({ product, user, onCartChange }) {
   const userId = user?.id || 1;
@@ -17,7 +18,7 @@ function ProductCard({ product, user, onCartChange }) {
   return (
     <article className="product-card">
       <div className="product-image-wrap">
-        <img className="product-image" src={product.image} alt={product.name} />
+        <ProductImage className="product-image" product={product} />
       </div>
       <div className="product-content">
         <div className="card-meta">

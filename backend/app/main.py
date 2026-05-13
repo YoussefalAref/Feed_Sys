@@ -26,7 +26,6 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-app.include_router(auth.users_router)
 app.include_router(products.router)
 app.include_router(interactions.router)
 app.include_router(recommendations.router)

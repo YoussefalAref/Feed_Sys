@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
+import ProductImage from '../components/ProductImage';
 import {
   addToCart,
   getCurrentUser,
@@ -60,7 +61,7 @@ function ProductDetails() {
   return (
     <div className="page details-page">
       <section className="details-layout">
-        <img className="details-image" src={product.image} alt={product.name} />
+        <ProductImage className="details-image" product={product} />
         <div className="details-content">
           <span className="category-pill">{product.category}</span>
           <h1>{product.name}</h1>

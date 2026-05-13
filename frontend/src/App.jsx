@@ -6,7 +6,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import ProductDetails from './pages/ProductDetails';
-import Signup from './pages/Signup';
+import Signup from './pages/SignUp';
 
 const isAdminApp = import.meta.env.MODE === 'admin';
 

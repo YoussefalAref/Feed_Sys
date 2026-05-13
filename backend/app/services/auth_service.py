@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session
 from app import models
 from app.services import cpp_core
 from app.services.security import hash_password, verify_password
+from app.services.auth_jwt import create_access_token
 from app.services.serialization import user_to_dict
 
 
 def make_token(user_id: int) -> str:
-    return f"mock-token-{user_id}"
+    return create_access_token(str(user_id))
 
 
 def login(db: Session, email: str, password: str) -> dict:

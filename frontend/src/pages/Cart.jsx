@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import ProductImage from '../components/ProductImage';
 import {
   checkout,
   getCart,
@@ -78,7 +79,7 @@ function Cart() {
           <div className="cart-list">
             {items.map((item) => (
               <article className="cart-item" key={item.item_id}>
-                <img className="cart-image" src={item.product.image} alt={item.product.name} />
+                <ProductImage className="cart-image" product={item.product} />
                 <div className="cart-item-main">
                   <h3>{item.product.name}</h3>
                   <p>EGP {item.product.price.toLocaleString()}</p>

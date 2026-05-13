@@ -345,6 +345,7 @@ InteractionState recordInteractionInternal(int userId, int itemId, const std::st
 }
 
 std::vector<py::dict> trendingFromProducts(const std::vector<ProductState>& products, int limit) {
+    cout << "[biteapple_core] trendingFromProducts" << endl;
     std::vector<Item> items;
     items.reserve(products.size());
     for (const auto& product : products) {
@@ -376,6 +377,7 @@ std::vector<py::dict> trendingFromProducts(const std::vector<ProductState>& prod
 }
 
 std::vector<py::dict> relatedProductsFromProducts(const std::vector<ProductState>& products, int itemId, int limit) {
+    cout << "[biteapple_core] relatedProductsFromProducts" << endl;
     std::vector<Item> items;
     items.reserve(products.size());
     for (const auto& product : products) {
@@ -423,6 +425,7 @@ std::vector<py::dict> recommendationsFromProducts(
     const UserState& user,
     int limit
 ) {
+    cout << "[biteapple_core] recommendationsFromProducts" << endl;
     if (products.empty()) {
         return {};
     }
@@ -506,6 +509,7 @@ std::vector<py::dict> recommendationsFromProducts(
 }
 
 std::vector<py::dict> recentInteractionsFromList(const std::vector<InteractionState>& interactions, int limit) {
+    cout << "[biteapple_core] recentInteractionsFromList" << endl;
     std::vector<py::dict> result;
     int safeLimit = std::max(0, limit);
     for (auto it = interactions.rbegin(); it != interactions.rend() && static_cast<int>(result.size()) < safeLimit; ++it) {
@@ -521,6 +525,7 @@ std::vector<py::dict> recentInteractionsFromList(const std::vector<InteractionSt
 // ---------------------------------------------------------------------------
 
 py::dict authenticate_user(const std::string& email, const std::string& password) {
+    cout << "[biteapple_core] authenticate_user" << endl;
     seedDefaults();
 
     AuthResult result;
@@ -544,6 +549,7 @@ py::dict authenticate_user(const std::string& email, const std::string& password
 }
 
 py::dict create_user(const py::dict& input) {
+    cout << "[biteapple_core] create_user" << endl;
     seedDefaults();
 
     std::string name = py::cast<std::string>(input["name"]);
@@ -576,6 +582,7 @@ py::dict create_user(const py::dict& input) {
 }
 
 py::dict get_user_by_id(int user_id) {
+    cout << "[biteapple_core] get_user_by_id" << endl;
     seedDefaults();
     UserState* user = findUserById(user_id);
     if (!user) {
@@ -585,6 +592,7 @@ py::dict get_user_by_id(int user_id) {
 }
 
 std::vector<py::dict> list_products(const std::string& category) {
+    cout << "[biteapple_core] list_products" << endl;
     seedDefaults();
     std::vector<py::dict> result;
     for (const auto& product : filterProductsByCategory(category)) {
@@ -594,6 +602,7 @@ std::vector<py::dict> list_products(const std::string& category) {
 }
 
 py::dict get_product_by_id(int item_id) {
+    cout << "[biteapple_core] get_product_by_id" << endl;
     seedDefaults();
     ProductState* product = findProduct(item_id);
     if (!product) {
@@ -603,6 +612,7 @@ py::dict get_product_by_id(int item_id) {
 }
 
 py::dict create_product(const py::dict& input) {
+    cout << "[biteapple_core] create_product" << endl;
     seedDefaults();
 
     ProductState product;
@@ -620,6 +630,7 @@ py::dict create_product(const py::dict& input) {
 }
 
 py::dict update_product(int item_id, const py::dict& input) {
+    cout << "[biteapple_core] update_product" << endl;
     seedDefaults();
     ProductState* product = findProduct(item_id);
     if (!product) {
@@ -646,6 +657,7 @@ py::dict update_product(int item_id, const py::dict& input) {
 }
 
 bool delete_product(int item_id) {
+    cout << "[biteapple_core] delete_product" << endl;
     seedDefaults();
     auto productIt = g_products.find(item_id);
     if (productIt == g_products.end()) {
@@ -668,6 +680,7 @@ bool delete_product(int item_id) {
 }
 
 std::vector<py::dict> get_cart(int user_id) {
+    cout << "[biteapple_core] get_cart" << endl;
     seedDefaults();
     std::vector<py::dict> result;
     for (const auto& [key, entry] : g_cart) {
@@ -682,6 +695,7 @@ std::vector<py::dict> get_cart(int user_id) {
 }
 
 bool add_to_cart(int user_id, int item_id, int quantity) {
+    cout << "[biteapple_core] add_to_cart" << endl;
     seedDefaults();
     if (quantity < 1) {
         throw std::runtime_error("Quantity must be at least 1");
@@ -706,6 +720,7 @@ bool add_to_cart(int user_id, int item_id, int quantity) {
 }
 
 bool remove_from_cart(int user_id, int item_id) {
+    cout << "[biteapple_core] remove_from_cart" << endl;
     seedDefaults();
     std::string key = cartKey(user_id, item_id);
     auto it = g_cart.find(key);
@@ -717,6 +732,7 @@ bool remove_from_cart(int user_id, int item_id) {
 }
 
 py::dict checkout(int user_id) {
+    cout << "[biteapple_core] checkout" << endl;
     seedDefaults();
     if (!findUserById(user_id)) {
         throw std::runtime_error("User not found");
@@ -762,6 +778,7 @@ py::dict checkout(int user_id) {
 }
 
 py::dict get_dashboard_stats() {
+    cout << "[biteapple_core] get_dashboard_stats" << endl;
     seedDefaults();
     DashboardStats stats;
     stats.totalProducts = static_cast<int>(g_products.size());
@@ -785,11 +802,13 @@ py::dict get_dashboard_stats() {
 }
 
 py::dict record_interaction(int user_id, int item_id, const std::string& interaction_type) {
+    cout << "[biteapple_core] record_interaction" << endl;
     InteractionState interaction = recordInteractionInternal(user_id, item_id, interaction_type);
     return interactionToDict(interaction);
 }
 
 std::vector<py::dict> get_recent_interactions(int limit) {
+    cout << "[biteapple_core] get_recent_interactions(int)" << endl;
     seedDefaults();
     std::vector<InteractionState> ordered = g_interactions;
     std::reverse(ordered.begin(), ordered.end());
@@ -797,6 +816,7 @@ std::vector<py::dict> get_recent_interactions(int limit) {
 }
 
 std::vector<py::dict> get_recommendations(int user_id, int limit) {
+    cout << "[biteapple_core] get_recommendations(int)" << endl;
     seedDefaults();
     UserState* user = findUserById(user_id);
     if (!user) {
@@ -814,6 +834,7 @@ std::vector<py::dict> get_recommendations(int user_id, int limit) {
 }
 
 std::vector<py::dict> get_related_products(int item_id, int limit) {
+    cout << "[biteapple_core] get_related_products(int)" << endl;
     seedDefaults();
     ProductState* product = findProduct(item_id);
     if (!product) {
@@ -854,6 +875,7 @@ std::vector<py::dict> get_related_products(int item_id, int limit) {
 }
 
 std::vector<py::dict> get_trending(int limit) {
+    cout << "[biteapple_core] get_trending(int)" << endl;
     seedDefaults();
     return trendingFromProducts(allProductsSorted(), limit);
 }
@@ -863,6 +885,7 @@ std::vector<py::dict> get_trending(int limit) {
 // ---------------------------------------------------------------------------
 
 std::vector<py::dict> rank_top_products(const std::vector<py::dict>& products, int limit) {
+    cout << "[biteapple_core] rank_top_products" << endl;
     std::vector<ProductState> items;
     items.reserve(products.size());
     for (const py::dict& product : products) {
@@ -885,6 +908,7 @@ std::vector<py::dict> rank_top_products(const std::vector<py::dict>& products, i
 }
 
 std::vector<py::dict> get_related_products(const std::vector<py::dict>& products, int item_id, int limit) {
+    cout << "[biteapple_core] get_related_products(products)" << endl;
     std::vector<ProductState> items;
     items.reserve(products.size());
     for (const py::dict& product : products) {
@@ -907,6 +931,7 @@ std::vector<py::dict> get_related_products(const std::vector<py::dict>& products
 }
 
 std::vector<py::dict> get_recent_interactions(const std::vector<py::dict>& interactions, int limit) {
+    cout << "[biteapple_core] get_recent_interactions(interactions)" << endl;
     std::vector<InteractionState> parsed;
     parsed.reserve(interactions.size());
     for (const py::dict& interaction : interactions) {
@@ -926,6 +951,7 @@ std::vector<py::dict> get_recommendations(const std::vector<py::dict>& products,
                                           const std::vector<py::dict>& interactions,
                                           const py::dict& user,
                                           int limit) {
+    cout << "[biteapple_core] get_recommendations(products, interactions, user)" << endl;
     std::vector<ProductState> parsedProducts;
     parsedProducts.reserve(products.size());
     for (const py::dict& product : products) {
@@ -970,6 +996,7 @@ std::vector<py::dict> score_recommendations(const std::vector<py::dict>& product
                                            const std::vector<py::dict>& interactions,
                                            const py::dict& user,
                                            int limit) {
+    cout << "[biteapple_core] score_recommendations" << endl;
     return get_recommendations(products, interactions, user, limit);
 }
 
