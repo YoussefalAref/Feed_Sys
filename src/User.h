@@ -163,8 +163,6 @@ private:
     // Recomputes userLevel_ from current activity counters
     void updateLevel();
 };
-#include "DTOs.h"      // UserInput, UserDTO, AuthResult
-#include "HashMap.h"
  
 // ---- Free functions — the symbols registered with pybind11 ----
 AuthResult authenticate_user(const std::string& email,
