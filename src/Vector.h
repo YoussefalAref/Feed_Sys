@@ -21,9 +21,10 @@ class Vector{
     int getCapacity() const;
     int getSize() const;
     bool isEmpty() const;
-
     void set(int index, T value);
-
-    
+    void reserve(int newCapacity);
+    void clear();
+    T& operator[](int index);
+    const T& operator[](int index) const;
 };
 #endif

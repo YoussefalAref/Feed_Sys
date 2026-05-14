@@ -35,11 +35,17 @@ class HashMap{
     ~HashMap();
     void insert(K key, V value);
     V search(K key);
+    V* searchPointer(K key);  // Returns pointer to value if found, nullptr otherwise
     bool remove(K key);
     int getSize();
     int getCapacity();
     void display();
+    void clear();
+    bool contains(K key);
     Vector<V> getAll();
+    Vector<K> getAllKeys();
+    // Callback-based iteration for compatibility
+    void forEach(void (*callback)(K, V));
 };
 #endif
 

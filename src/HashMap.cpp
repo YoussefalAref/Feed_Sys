@@ -80,6 +80,21 @@ current = current->next;
 return V();
 }
 
+// search for a key and return a pointer to the value if found
+template<typename K, typename V>
+V* HashMap<K,V>::searchPointer(K key){
+int index = hashFunction(key);
+Node<K,V>* current = table[index];
+
+while(current != nullptr){
+if(current->key == key){
+return &current->value;
+}
+current = current->next;
+}
+return nullptr;
+}
+
 // remove a key from the hash map, return true if the key was found and removed, false otherwise
 template<typename K, typename V>
 bool HashMap<K,V>::remove(K key){
@@ -172,10 +187,71 @@ Vector<V> HashMap<K,V>::getAll(){
     }
     return allItems;
 }
+
+template<typename K, typename V>
+Vector<K> HashMap<K,V>::getAllKeys(){
+    Vector<K> allKeys;
+    for(int i = 0; i < capacity; i++){
+        Node<K,V>* current = table[i];
+        while(current != nullptr){
+            allKeys.push_back(current->key);
+            current = current->next;
+        }
+    }
+    return allKeys;
+}
+
+template<typename K, typename V>
+void HashMap<K,V>::clear(){
+    for(int i = 0; i < capacity; i++){
+        Node<K,V>* current = table[i];
+        while(current != nullptr){
+            Node<K,V>* toDelete = current;
+            current = current->next;
+            delete toDelete;
+        }
+        table[i] = nullptr;
+    }
+    size = 0;
+}
+
+template<typename K, typename V>
+bool HashMap<K,V>::contains(K key){
+    int index = hashFunction(key);
+    Node<K,V>* current = table[index];
+    while(current != nullptr){
+        if(current->key == key){
+            return true;
+        }
+        current = current->next;
+    }
+    return false;
+}
+
+template<typename K, typename V>
+void HashMap<K,V>::forEach(void (*callback)(K, V)){
+    for(int i = 0; i < capacity; i++){
+        Node<K,V>* current = table[i];
+        while(current != nullptr){
+            callback(current->key, current->value);
+            current = current->next;
+        }
+    }
+}
+
+// Hash function specialization for int keys
+template<>
+int HashMap<int, int>::hashFunction(int key){
+    return (key % capacity + capacity) % capacity;
+}
+
+// Explicit template specializations for hash functions
+// String keys already defined above
+
 // explicit instantiation of the template class
 template class HashMap<int, User>;     
 template class HashMap<int, Item>;      
-template class HashMap<std::string, User>; 
+template class HashMap<std::string, User>;
 
 
 

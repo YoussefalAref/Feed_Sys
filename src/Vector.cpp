@@ -94,6 +94,37 @@ void Vector<T>::set(int index, T value)
     }
 }
 
+template<typename T>
+void Vector<T>::reserve(int newCapacity)
+{
+    if(newCapacity > capacity) {
+        capacity = newCapacity;
+        T* newArr = new T[capacity];
+        for(int i = 0; i < size; i++){
+            newArr[i] = arr[i];
+        }
+        delete[] arr;
+        arr = newArr;
+    }
+}
+
+template<typename T>
+void Vector<T>::clear()
+{
+    size = 0;
+}
+
+template<typename T>
+T& Vector<T>::operator[](int index)
+{
+    return arr[index];
+}
+
+template<typename T>
+const T& Vector<T>::operator[](int index) const
+{
+    return arr[index];
+}
 
 template class Vector<Item>;
 // Explicitly instantiate Vector for the DTO types
