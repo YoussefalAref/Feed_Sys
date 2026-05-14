@@ -1,12 +1,14 @@
 #include "../Vector.h"
 #include "../HashMap.h"
 #include "../STLHelper.h"
-#include "../data_structures/Graph.h"
-#include "../data_structures/Heap.h"
-#include "../data_structures/Queue.h"
-#include "../models/Interaction.h"
-#include "../models/Item.h"
+#include "../Graph.h"
+#include "../Heap.h"
+#include "../Queue.h"
+#include "../Interaction.h"
+#include "../DTOs.h"
+#include "../StateStructs.h"
 
+#include <algorithm>
 #include <cctype>
 #include <ctime>
 #include <iomanip>
@@ -19,64 +21,34 @@
 
 namespace py = pybind11;
 
+// Type caster: Vector<T> <-> Python list (must come before any function definitions)
+namespace pybind11 { namespace detail {
+    template <typename T>
+    struct type_caster<Vector<T>> {
+        PYBIND11_TYPE_CASTER(Vector<T>, _("List"));
+
+        bool load(handle src, bool convert) {
+            if (!isinstance<sequence>(src) || isinstance<str>(src) || isinstance<bytes>(src))
+                return false;
+            value.clear();
+            for (const auto& item : reinterpret_borrow<sequence>(src)) {
+                value.push_back(item.template cast<T>());
+            }
+            return true;
+        }
+
+        static handle cast(const Vector<T>& src, return_value_policy /*policy*/, handle /*parent*/) {
+            list lst;
+            for (int i = 0; i < src.getSize(); i++)
+                lst.append(src[i]);
+            return lst.release();
+        }
+    };
+}} // namespace pybind11::detail
+
 namespace {
-struct UserState {
-    int id = -1;
-    std::string name;
-    std::string email;
-    std::string password;
-    std::string category;
-    std::string region;
-    double score = 50.0;
-    int activity_score = 0;
-    std::string level = "Normal";
-};
 
-struct ProductState {
-    int id = -1;
-    std::string name;
-    double price = 0.0;
-    std::string category;
-    double popularity_score = 0.0;
-    int stock = 0;
-    std::string image;
-    std::string description;
-};
-
-struct CartEntry {
-    int user_id = -1;
-    int item_id = -1;
-    int quantity = 0;
-};
-
-struct InteractionState {
-    int id = -1;
-    int user_id = -1;
-    int item_id = -1;
-    std::string type;
-    std::string timestamp;
-};
-
-struct AuthResult {
-    bool success = false;
-    std::string error;
-    UserState user;
-    std::string token;
-};
-
-struct CheckoutResult {
-    bool success = false;
-    int purchased = 0;
-};
-
-struct DashboardStats {
-    int totalProducts = 0;
-    int totalUsers = 0;
-    int totalInteractions = 0;
-    std::string mostPopularCategory = "N/A";
-};
-
-// Using custom HashMap and Vector instead of STL
+// Global state variables
 HashMap<int, UserState> g_users;
 HashMap<int, ProductState> g_products;
 HashMap<std::string, CartEntry> g_cart;
@@ -85,9 +57,7 @@ int g_nextUserId = 1;
 int g_nextProductId = 101;
 int g_nextInteractionId = 1;
 bool g_seeded = false;
-
-// toLower is now replaced by stringToLower from STLHelper
-// std::transform usage removed and replaced with custom implementation
+Queue g_interactionQueue;
 
 std::string nowIso8601() {
     std::time_t now = std::time(nullptr);
@@ -172,9 +142,9 @@ py::dict cartItemToDict(const CartEntry& entry) {
     result["item_id"] = entry.item_id;
     result["quantity"] = entry.quantity;
 
-    auto productIt = g_products.search(entry.item_id);
-    if (productIt != g_products.getSize()) {
-        result["product"] = productToDict(productIt->second);
+    ProductState* productPtr = g_products.searchPointer(entry.item_id);
+    if (productPtr != nullptr) {
+        result["product"] = productToDict(*productPtr);
     } else {
         result["product"] = py::dict();
     }
@@ -182,12 +152,38 @@ py::dict cartItemToDict(const CartEntry& entry) {
     return result;
 }
 
+UserDTO userStateToDTO(const UserState& s) {
+    UserDTO d;
+    d.id             = s.id;
+    d.name           = s.name;
+    d.email          = s.email;
+    d.category       = s.category;
+    d.score          = s.score;
+    d.region         = s.region;
+    d.activity_score = s.activity_score;
+    d.level          = s.level;
+    return d;
+}
+
+py::dict userDTOToDict(const UserDTO& u) {
+    py::dict result;
+    result["id"]             = u.id;
+    result["name"]           = u.name;
+    result["email"]          = u.email;
+    result["category"]       = u.category;
+    result["score"]          = u.score;
+    result["region"]         = u.region;
+    result["activity_score"] = u.activity_score;
+    result["level"]          = u.level;
+    return result;
+}
+
 py::dict authResultToDict(const AuthResult& authResult) {
     py::dict result;
     result["success"] = authResult.success;
-    result["error"] = authResult.error;
-    result["user"] = userToDict(authResult.user);
-    result["token"] = authResult.token;
+    result["error"]   = authResult.error;
+    result["user"]    = userDTOToDict(authResult.user);
+    result["token"]   = authResult.token;
     return result;
 }
 
@@ -228,9 +224,7 @@ UserState* findUserByEmail(const std::string& email) {
 }
 
 void seedDefaults() {
-    if (g_seeded) {
-        return;
-    }
+    if (g_seeded) return;
 
     g_users.clear();
     g_products.clear();
@@ -261,28 +255,20 @@ void seedDefaults() {
 Vector<ProductState> allProductsSorted() {
     Vector<ProductState> result;
     result.reserve(g_products.getSize());
-    
-    // Iterate through all products
+
     Vector<int> allIds = g_products.getAllKeys();
     for (int i = 0; i < allIds.getSize(); ++i) {
         ProductState* product = g_products.searchPointer(allIds[i]);
-        if (product) {
-            result.push_back(*product);
-        }
+        if (product) result.push_back(*product);
     }
 
-    // Bubble sort by popularity score (descending), then by ID (ascending)
+    // Bubble sort by popularity score descending, then by id ascending
     int n = result.getSize();
     for (int i = 0; i < n - 1; ++i) {
         for (int j = 0; j < n - i - 1; ++j) {
-            ProductState left = result[j];
-            ProductState right = result[j+1];
-            bool shouldSwap = false;
-            if (left.popularity_score == right.popularity_score) {
-                shouldSwap = left.id > right.id;
-            } else {
-                shouldSwap = left.popularity_score < right.popularity_score;
-            }
+            bool shouldSwap = (result[j].popularity_score == result[j+1].popularity_score)
+                ? (result[j].id > result[j+1].id)
+                : (result[j].popularity_score < result[j+1].popularity_score);
             if (shouldSwap) {
                 ProductState temp = result[j];
                 result[j] = result[j+1];
@@ -296,22 +282,20 @@ Vector<ProductState> allProductsSorted() {
 Vector<ProductState> filterProductsByCategory(const std::string& category) {
     Vector<ProductState> result;
     std::string normalized = stringToLower(category);
-    
+
     Vector<int> allIds = g_products.getAllKeys();
     for (int i = 0; i < allIds.getSize(); ++i) {
         ProductState* product = g_products.searchPointer(allIds[i]);
-        if (product && (normalized.empty() || stringToLower(product->category) == normalized)) {
+        if (product && (normalized.empty() || stringToLower(product->category) == normalized))
             result.push_back(*product);
-        }
     }
-    
+
     int n = result.getSize();
     for (int i = 0; i < n - 1; ++i) {
         for (int j = 0; j < n - i - 1; ++j) {
-            ProductState left = result[j];
-            ProductState right = result[j+1];
-            bool shouldSwap = (left.popularity_score == right.popularity_score) ? 
-                (left.id > right.id) : (left.popularity_score < right.popularity_score);
+            bool shouldSwap = (result[j].popularity_score == result[j+1].popularity_score)
+                ? (result[j].id > result[j+1].id)
+                : (result[j].popularity_score < result[j+1].popularity_score);
             if (shouldSwap) {
                 ProductState temp = result[j];
                 result[j] = result[j+1];
@@ -329,6 +313,33 @@ void updateUserActivity(UserState& user, const std::string& type) {
 
 void updateProductPopularity(ProductState& product, const std::string& type) {
     product.popularity_score += interactionWeight(type);
+}
+
+InteractionType toInteractionType(const std::string& canonical) {
+    if (canonical == "click")    return CLICK;
+    if (canonical == "cart")     return ADD_TO_CART;
+    if (canonical == "purchase") return PURCHASE;
+    return VIEW;
+}
+
+// Drain g_interactionQueue and apply score effects for each event.
+void processInteractionQueue() {
+    while (!g_interactionQueue.isEmpty()) {
+        Interaction event = g_interactionQueue.dequeue();
+
+        std::string typeStr;
+        switch (event.getType()) {
+            case VIEW:        typeStr = "view";     break;
+            case CLICK:       typeStr = "click";    break;
+            case ADD_TO_CART: typeStr = "cart";     break;
+            case PURCHASE:    typeStr = "purchase"; break;
+        }
+
+        UserState*    user    = findUserById(event.getUserID());
+        ProductState* product = findProduct(event.getItemID());
+        if (user)    updateUserActivity(*user, typeStr);
+        if (product) updateProductPopularity(*product, typeStr);
+    }
 }
 
 InteractionState appendInteraction(int userId, int itemId, const std::string& type) {
@@ -349,48 +360,49 @@ InteractionState recordInteractionInternal(int userId, int itemId, const std::st
     ProductState* product = findProduct(itemId);
     std::string canonicalType = interactionTypeCanonical(type);
 
-    if (!user) {
-        throw std::runtime_error("User not found");
-    }
-    if (!product) {
-        throw std::runtime_error("Product not found");
-    }
-    if (canonicalType.empty()) {
-        throw std::runtime_error("Unsupported interaction type");
-    }
+    if (!user)    throw std::runtime_error("User not found");
+    if (!product) throw std::runtime_error("Product not found");
+    if (canonicalType.empty()) throw std::runtime_error("Unsupported interaction type");
 
+    // Stage the event in the queue, then flush — score updates happen inside processInteractionQueue.
+    g_interactionQueue.enqueue(Interaction(userId, itemId, toInteractionType(canonicalType)));
     InteractionState interaction = appendInteraction(userId, itemId, canonicalType);
-    updateUserActivity(*user, canonicalType);
-    updateProductPopularity(*product, canonicalType);
+    processInteractionQueue();
     return interaction;
 }
 
+// Extract top `limit` products by popularity score using a max-heap.
+// O(n + k log n) — faster than sorting everything when k << n.
 Vector<py::dict> trendingFromProducts(const Vector<ProductState>& products, int limit) {
-    Vector<Item> items;
-    items.reserve(products.getSize());
-    for (const auto& product : products) {
-        items.push_back(intToString(product.id), product.name, product.price, product.category, static_cast<int>(product.popularity_score), product.stock);
+    if (products.empty() || limit <= 0) return {};
+
+    // Build Item array and insert into max-heap
+    Heap heap(products.getSize());
+    for (int i = 0; i < products.getSize(); ++i) {
+        const ProductState& p = products[i];
+        heap.insert(Item(intToString(p.id), p.name, p.price, p.category,
+                         static_cast<int>(p.popularity_score), p.stock));
     }
 
-    Heap heap(static_cast<int>(items.getSize()) + 1);
-    for (const Item& item : items) {
-        heap.insert(item);
-    }
-
+    // Extract top-k items; look up the full ProductState for each
     Vector<py::dict> result;
     int safeLimit = maxVal(0, limit);
-    for (int i = 0; i < safeLimit && !heap.isEmpty(); ++i) {
-        Item item = heap.extractMax();
-        int productId = 0;
-        try {
-            productId = stringToInt(item.getID());
-        } catch (...) {
-            productId = 0;
-        }
-
-        auto productIt = g_products.search(productId);
-        if (productIt != g_products.getSize()) {
-            result.push_back(productToDict(productIt->second));
+    while (!heap.isEmpty() && static_cast<int>(result.getSize()) < safeLimit) {
+        Item top = heap.extractMax();
+        int productId = stringToInt(top.getID());
+        ProductState* ptr = g_products.searchPointer(productId);
+        if (ptr != nullptr) {
+            result.push_back(productToDict(*ptr));
+        } else {
+            // Fallback: build dict directly from the Item (used by legacy overload)
+            ProductState ps;
+            ps.id               = productId;
+            ps.name             = top.getName();
+            ps.price            = top.getPrice();
+            ps.category         = top.getCategory();
+            ps.popularity_score = static_cast<double>(top.getPopularityScore());
+            ps.stock            = top.getStock();
+            result.push_back(productToDict(ps));
         }
     }
     return result;
@@ -399,39 +411,31 @@ Vector<py::dict> trendingFromProducts(const Vector<ProductState>& products, int 
 Vector<py::dict> relatedProductsFromProducts(const Vector<ProductState>& products, int itemId, int limit) {
     Vector<Item> items;
     items.reserve(products.getSize());
-    for (const auto& product : products) {
-        items.push_back(intToString(product.id), product.name, product.price, product.category, static_cast<int>(product.popularity_score), product.stock);
+    for (int i = 0; i < products.getSize(); ++i) {
+        const ProductState& p = products[i];
+        items.push_back(Item(intToString(p.id), p.name, p.price, p.category,
+                             static_cast<int>(p.popularity_score), p.stock));
     }
 
-    if (items.empty()) {
-        return {};
-    }
+    if (items.empty()) return {};
 
     Graph graph;
     graph.build(items.data(), static_cast<int>(items.getSize()));
 
     int count = 0;
     std::string* neighbors = graph.getNeighbors(intToString(itemId), count);
-    if (neighbors == nullptr) {
-        return {};
-    }
+    if (neighbors == nullptr) return {};
 
     Vector<py::dict> result;
     int safeLimit = maxVal(0, limit);
     for (int i = 0; i < count && static_cast<int>(result.getSize()) < safeLimit; ++i) {
         int neighborId = 0;
-        try {
-            neighborId = stringToInt(neighbors[i]);
-        } catch (...) {
-            continue;
-        }
+        try { neighborId = stringToInt(neighbors[i]); } catch (...) { continue; }
 
-        auto productIt = g_products.search(neighborId);
-        if (productIt == g_products.getSize()) {
-            continue;
-        }
+        ProductState* productPtr = g_products.searchPointer(neighborId);
+        if (productPtr == nullptr) continue;
 
-        py::dict payload = productToDict(productIt->second);
+        py::dict payload = productToDict(*productPtr);
         payload["similarity_score"] = 0.87;
         result.push_back(payload);
     }
@@ -444,76 +448,67 @@ Vector<py::dict> recommendationsFromProducts(
     const UserState& user,
     int limit
 ) {
-    if (products.empty()) {
-        return {};
-    }
+    if (products.empty()) return {};
 
     Vector<Item> items;
     items.reserve(products.getSize());
-    for (const auto& product : products) {
-        items.push_back(intToString(product.id), product.name, product.price, product.category, static_cast<int>(product.popularity_score), product.stock);
+    for (int i = 0; i < products.getSize(); ++i) {
+        const ProductState& p = products[i];
+        items.push_back(Item(intToString(p.id), p.name, p.price, p.category,
+                             static_cast<int>(p.popularity_score), p.stock));
     }
 
     Graph graph;
     graph.build(items.data(), static_cast<int>(items.getSize()));
 
     Vector<std::string> interactedIds;
-    for (const auto& interaction : interactions) {
+    for (int i = 0; i < interactions.getSize(); ++i) {
+        const InteractionState& interaction = interactions[i];
         if (interaction.user_id == user.id) {
             std::string itemId = intToString(interaction.item_id);
-            if (vectorFind(interactedIds, interactedIds.getSize(), itemId) == interactedIds.getSize()) {
+            if (vectorFind(interactedIds, itemId) == -1) {
                 interactedIds.push_back(itemId);
             }
         }
     }
 
-    Vector<Pair<py::dict, double>> scored;
-    for (const auto& product : products) {
-        if (product.stock <= 0) {
-            continue;
-        }
+    Vector<Pair<py::dict>> scored;
+    for (int pi = 0; pi < products.getSize(); ++pi) {
+        const ProductState& product = products[pi];
+        if (product.stock <= 0) continue;
 
         double score = product.popularity_score;
-        if (stringToLower(product.category) == stringToLower(user.category)) {
-            score += 15.0;
-        }
+        if (stringToLower(product.category) == stringToLower(user.category)) score += 15.0;
 
-        for (const std::string& interactedId : interactedIds) {
+        for (int ii = 0; ii < interactedIds.getSize(); ++ii) {
             int count = 0;
-            std::string* neighbors = graph.getNeighbors(interactedId, count);
-            if (neighbors == nullptr) {
-                continue;
-            }
-            for (int i = 0; i < count; ++i) {
-                if (neighbors[i] == intToString(product.id)) {
-                    score += 10.0;
-                    break;
-                }
+            std::string* neighbors = graph.getNeighbors(interactedIds[ii], count);
+            if (neighbors == nullptr) continue;
+            for (int n = 0; n < count; ++n) {
+                if (neighbors[n] == intToString(product.id)) { score += 10.0; break; }
             }
         }
 
-        for (const auto& interaction : interactions) {
-            if (interaction.user_id == user.id && interaction.item_id == product.id) {
+        for (int ii = 0; ii < interactions.getSize(); ++ii) {
+            const InteractionState& interaction = interactions[ii];
+            if (interaction.user_id == user.id && interaction.item_id == product.id)
                 score += static_cast<double>(interactionWeight(interaction.type));
-            }
         }
 
         py::dict payload = productToDict(product);
         payload["recommendation_score"] = score;
 
         std::string reason = "Because it matches your interests";
-        if (stringToLower(product.category) == stringToLower(user.category)) {
+        if (stringToLower(product.category) == stringToLower(user.category))
             reason = "Because you interacted with " + product.category + " products";
-        }
         payload["reason"] = reason;
-        scored.push_back(payload, score);
+
+        scored.push_back(Pair<py::dict>(payload, score));
     }
 
-    vectorSort(scored, scored.getSize(), [](const auto& left, const auto& right) {
+    vectorSort(scored, [](const Pair<py::dict>& left, const Pair<py::dict>& right) {
         if (left.second == right.second) {
-            auto leftId = py::cast<int>(left.first["id"]);
-            auto rightId = py::cast<int>(right.first["id"]);
-            return leftId < rightId;
+            return py::cast<int>(left.first["id"]) < py::cast<int>(right.first["id"]);
         }
         return left.second > right.second;
     });
@@ -529,7 +524,9 @@ Vector<py::dict> recommendationsFromProducts(
 Vector<py::dict> recentInteractionsFromList(const Vector<InteractionState>& interactions, int limit) {
     Vector<py::dict> result;
     int safeLimit = maxVal(0, limit);
-    for (auto it = interactions.rbegin(); it != interactions.rend() && static_cast<int>(result.getSize()) < safeLimit; ++it) {
+    for (auto it = interactions.rbegin();
+         it != interactions.rend() && static_cast<int>(result.getSize()) < safeLimit;
+         ++it) {
         result.push_back(interactionToDict(*it));
     }
     return result;
@@ -559,67 +556,60 @@ py::dict authenticate_user(const std::string& email, const std::string& password
     }
 
     result.success = true;
-    result.user = *user;
-    result.token = "dev-token-" + intToString(user->id);
+    result.user    = userStateToDTO(*user);
+    result.token   = "dev-token-" + intToString(user->id);
     return authResultToDict(result);
 }
 
 py::dict create_user(const py::dict& input) {
     seedDefaults();
 
-    std::string name = py::cast<std::string>(input["name"]);
-    std::string email = py::cast<std::string>(input["email"]);
+    std::string name     = py::cast<std::string>(input["name"]);
+    std::string email    = py::cast<std::string>(input["email"]);
     std::string password = py::cast<std::string>(input["password"]);
     std::string category = input.contains("category") ? py::cast<std::string>(input["category"]) : "Electronics";
-    std::string region = input.contains("region") ? py::cast<std::string>(input["region"]) : "Cairo";
+    std::string region   = input.contains("region")   ? py::cast<std::string>(input["region"])   : "Cairo";
 
-    if (findUserByEmail(email)) {
-        throw std::runtime_error("Email is already registered");
-    }
+    if (findUserByEmail(email)) throw std::runtime_error("Email is already registered");
 
     UserState user;
-    user.id = g_nextUserId++;
-    user.name = name;
-    user.email = email;
-    user.password = password;
-    user.category = category;
-    user.region = region;
-    user.score = 50.0;
+    user.id             = g_nextUserId++;
+    user.name           = name;
+    user.email          = email;
+    user.password       = password;
+    user.category       = category;
+    user.region         = region;
+    user.score          = 50.0;
     user.activity_score = 0;
-    user.level = "Normal";
+    user.level          = "Normal";
     g_users.insert(user.id, user);
 
     AuthResult result;
     result.success = true;
-    result.user = user;
-    result.token = "dev-token-" + intToString(user.id);
+    result.user    = userStateToDTO(user);
+    result.token   = "dev-token-" + intToString(user.id);
     return authResultToDict(result);
 }
 
 py::dict get_user_by_id(int user_id) {
     seedDefaults();
     UserState* user = findUserById(user_id);
-    if (!user) {
-        throw std::runtime_error("User not found");
-    }
+    if (!user) throw std::runtime_error("User not found");
     return userToDict(*user);
 }
 
 Vector<py::dict> list_products(const std::string& category) {
     seedDefaults();
     Vector<py::dict> result;
-    for (const auto& product : filterProductsByCategory(category)) {
+    for (const auto& product : filterProductsByCategory(category))
         result.push_back(productToDict(product));
-    }
     return result;
 }
 
 py::dict get_product_by_id(int item_id) {
     seedDefaults();
     ProductState* product = findProduct(item_id);
-    if (!product) {
-        throw std::runtime_error("Product not found");
-    }
+    if (!product) throw std::runtime_error("Product not found");
     return productToDict(*product);
 }
 
@@ -627,13 +617,13 @@ py::dict create_product(const py::dict& input) {
     seedDefaults();
 
     ProductState product;
-    product.id = g_nextProductId++;
-    product.name = py::cast<std::string>(input["name"]);
-    product.price = py::cast<double>(input["price"]);
-    product.category = py::cast<std::string>(input["category"]);
-    product.stock = input.contains("stock") ? py::cast<int>(input["stock"]) : 0;
-    product.image = input.contains("image") ? py::cast<std::string>(input["image"]) : "";
-    product.description = input.contains("description") ? py::cast<std::string>(input["description"]) : "";
+    product.id               = g_nextProductId++;
+    product.name             = py::cast<std::string>(input["name"]);
+    product.price            = py::cast<double>(input["price"]);
+    product.category         = py::cast<std::string>(input["category"]);
+    product.stock            = input.contains("stock")            ? py::cast<int>(input["stock"])            : 0;
+    product.image            = input.contains("image")            ? py::cast<std::string>(input["image"])    : "";
+    product.description      = input.contains("description")      ? py::cast<std::string>(input["description"]) : "";
     product.popularity_score = input.contains("popularity_score") ? py::cast<double>(input["popularity_score"]) : 40.0;
     g_products.insert(product.id, product);
 
@@ -643,49 +633,32 @@ py::dict create_product(const py::dict& input) {
 py::dict update_product(int item_id, const py::dict& input) {
     seedDefaults();
     ProductState* product = findProduct(item_id);
-    if (!product) {
-        throw std::runtime_error("Product not found");
-    }
+    if (!product) throw std::runtime_error("Product not found");
 
-    product->name = py::cast<std::string>(input["name"]);
-    product->price = py::cast<double>(input["price"]);
+    product->name     = py::cast<std::string>(input["name"]);
+    product->price    = py::cast<double>(input["price"]);
     product->category = py::cast<std::string>(input["category"]);
-    if (input.contains("stock")) {
-        product->stock = py::cast<int>(input["stock"]);
-    }
-    if (input.contains("image")) {
-        product->image = py::cast<std::string>(input["image"]);
-    }
-    if (input.contains("description")) {
-        product->description = py::cast<std::string>(input["description"]);
-    }
-    if (input.contains("popularity_score")) {
-        product->popularity_score = py::cast<double>(input["popularity_score"]);
-    }
+    if (input.contains("stock"))            product->stock            = py::cast<int>(input["stock"]);
+    if (input.contains("image"))            product->image            = py::cast<std::string>(input["image"]);
+    if (input.contains("description"))      product->description      = py::cast<std::string>(input["description"]);
+    if (input.contains("popularity_score")) product->popularity_score = py::cast<double>(input["popularity_score"]);
 
     return productToDict(*product);
 }
 
 bool delete_product(int item_id) {
     seedDefaults();
-    if (!g_products.contains(item_id)) {
-        return false;
-    }
-
+    if (!g_products.contains(item_id)) return false;
     g_products.remove(item_id);
 
     Vector<std::string> keysToRemove;
-    Vector<std::string> cartKeys = g_cart.getAllKeys();
-    for (int i = 0; i < cartKeys.getSize(); ++i) {
-        std::string key = cartKeys[i];
-        CartEntry entry = g_cart.search(key);
-        if (entry.item_id == item_id) {
-            keysToRemove.push_back(key);
-        }
+    Vector<std::string> allCartKeys = g_cart.getAllKeys();
+    for (int i = 0; i < allCartKeys.getSize(); ++i) {
+        CartEntry entry = g_cart.search(allCartKeys[i]);
+        if (entry.item_id == item_id) keysToRemove.push_back(allCartKeys[i]);
     }
-    for (int j = 0; j < keysToRemove.getSize(); ++j) {
+    for (int j = 0; j < keysToRemove.getSize(); ++j)
         g_cart.remove(keysToRemove[j]);
-    }
 
     return true;
 }
@@ -693,15 +666,12 @@ bool delete_product(int item_id) {
 Vector<py::dict> get_cart(int user_id) {
     seedDefaults();
     Vector<py::dict> result;
-    Vector<std::string> cartKeys = g_cart.getAllKeys();
-    for (int i = 0; i < cartKeys.getSize(); ++i) {
-        std::string key = cartKeys[i];
-        CartEntry entry = g_cart.search(key);
-        if (entry.user_id == user_id) {
-            result.push_back(cartItemToDict(entry));
-        }
+    Vector<std::string> allCartKeys = g_cart.getAllKeys();
+    for (int i = 0; i < allCartKeys.getSize(); ++i) {
+        CartEntry entry = g_cart.search(allCartKeys[i]);
+        if (entry.user_id == user_id) result.push_back(cartItemToDict(entry));
     }
-    vectorSort(result, result.getSize(), [](const py::dict& left, const py::dict& right) {
+    vectorSort(result, [](const py::dict& left, const py::dict& right) {
         return py::cast<int>(left["item_id"]) < py::cast<int>(right["item_id"]);
     });
     return result;
@@ -709,22 +679,16 @@ Vector<py::dict> get_cart(int user_id) {
 
 bool add_to_cart(int user_id, int item_id, int quantity) {
     seedDefaults();
-    if (quantity < 1) {
-        throw std::runtime_error("Quantity must be at least 1");
-    }
-    if (!findUserById(user_id)) {
-        throw std::runtime_error("User not found");
-    }
-    if (!findProduct(item_id)) {
-        throw std::runtime_error("Product not found");
-    }
+    if (quantity < 1) throw std::runtime_error("Quantity must be at least 1");
+    if (!findUserById(user_id))  throw std::runtime_error("User not found");
+    if (!findProduct(item_id))   throw std::runtime_error("Product not found");
 
     std::string key = cartKey(user_id, item_id);
-    auto it = g_cart.search(key);
-    if (it == g_cart.getSize()) {
+    CartEntry* existing = g_cart.searchPointer(key);
+    if (existing == nullptr) {
         g_cart.insert(key, CartEntry{user_id, item_id, quantity});
     } else {
-        it->second.quantity += quantity;
+        existing->quantity += quantity;
     }
 
     recordInteractionInternal(user_id, item_id, "cart");
@@ -734,58 +698,43 @@ bool add_to_cart(int user_id, int item_id, int quantity) {
 bool remove_from_cart(int user_id, int item_id) {
     seedDefaults();
     std::string key = cartKey(user_id, item_id);
-    auto it = g_cart.search(key);
-    if (it == g_cart.getSize()) {
-        return false;
-    }
-    g_cart.remove(it);
+    if (!g_cart.contains(key)) return false;
+    g_cart.remove(key);
     return true;
 }
 
 py::dict checkout(int user_id) {
     seedDefaults();
-    if (!findUserById(user_id)) {
-        throw std::runtime_error("User not found");
-    }
+    if (!findUserById(user_id)) throw std::runtime_error("User not found");
 
     Vector<CartEntry> entries;
-    Vector<std::string> cartKeys = g_cart.getAllKeys();
-    for (int i = 0; i < cartKeys.getSize(); ++i) {
-        std::string key = cartKeys[i];
-        CartEntry entry = g_cart.search(key);
-        if (entry.user_id == user_id) {
-            entries.push_back(entry);
-        }
+    Vector<std::string> allCartKeys = g_cart.getAllKeys();
+    for (int i = 0; i < allCartKeys.getSize(); ++i) {
+        CartEntry entry = g_cart.search(allCartKeys[i]);
+        if (entry.user_id == user_id) entries.push_back(entry);
     }
 
-    if (entries.empty()) {
-        throw std::runtime_error("Cart is empty");
-    }
+    if (entries.empty()) throw std::runtime_error("Cart is empty");
 
     int purchased = 0;
-    for (const CartEntry& entry : entries) {
+    for (int i = 0; i < entries.getSize(); ++i) {
+        const CartEntry& entry = entries[i];
         ProductState* product = findProduct(entry.item_id);
-        if (!product) {
-            continue;
-        }
+        if (!product) continue;
 
         int quantity = maxVal(1, entry.quantity);
-        if (product->stock >= quantity) {
-            product->stock -= quantity;
-        } else {
-            product->stock = 0;
-        }
+        if (product->stock >= quantity) product->stock -= quantity;
+        else product->stock = 0;
 
-        for (int i = 0; i < quantity; ++i) {
+        for (int q = 0; q < quantity; ++q)
             recordInteractionInternal(user_id, entry.item_id, "purchase");
-        }
 
         g_cart.remove(cartKey(entry.user_id, entry.item_id));
         purchased += quantity;
     }
 
     CheckoutResult result;
-    result.success = true;
+    result.success   = true;
     result.purchased = purchased;
     return checkoutResultToDict(result);
 }
@@ -793,28 +742,27 @@ py::dict checkout(int user_id) {
 py::dict get_dashboard_stats() {
     seedDefaults();
     DashboardStats stats;
-    stats.totalProducts = static_cast<int>(g_products.getSize());
-    stats.totalUsers = static_cast<int>(g_users.getSize());
+    stats.totalProducts     = static_cast<int>(g_products.getSize());
+    stats.totalUsers        = static_cast<int>(g_users.getSize());
     stats.totalInteractions = static_cast<int>(g_interactions.getSize());
 
     HashMap<std::string, double> categoryTotals;
     Vector<int> productIds = g_products.getAllKeys();
     for (int i = 0; i < productIds.getSize(); ++i) {
-        int id = productIds[i];
-        ProductState* product = g_products.searchPointer(id);
+        ProductState* product = g_products.searchPointer(productIds[i]);
         if (product) {
-        double currentTotal = categoryTotals.search(product->category);
-        categoryTotals.insert(product->category, currentTotal + product->popularity_score);
+            double current = categoryTotals.search(product->category);
+            categoryTotals.insert(product->category, current + product->popularity_score);
+        }
     }
 
     double bestScore = -1.0;
     Vector<std::string> categories = categoryTotals.getAllKeys();
     for (int i = 0; i < categories.getSize(); ++i) {
-        std::string category = categories[i];
-        double total = categoryTotals.search(category);
+        double total = categoryTotals.search(categories[i]);
         if (total > bestScore) {
             bestScore = total;
-            stats.mostPopularCategory = category;
+            stats.mostPopularCategory = categories[i];
         }
     }
 
@@ -829,22 +777,19 @@ py::dict record_interaction(int user_id, int item_id, const std::string& interac
 Vector<py::dict> get_recent_interactions(int limit) {
     seedDefaults();
     Vector<InteractionState> ordered = g_interactions;
-    std::reverse(ordered, ordered.getSize());
+    std::reverse(ordered.begin(), ordered.end());
     return recentInteractionsFromList(ordered, limit);
 }
 
 Vector<py::dict> get_recommendations(int user_id, int limit) {
     seedDefaults();
     UserState* user = findUserById(user_id);
-    if (!user) {
-        return trendingFromProducts(allProductsSorted(), limit);
-    }
+    if (!user) return trendingFromProducts(allProductsSorted(), limit);
 
     Vector<InteractionState> userInteractions;
-    for (const auto& interaction : g_interactions) {
-        if (interaction.user_id == user_id) {
-            userInteractions.push_back(interaction);
-        }
+    for (int i = 0; i < g_interactions.getSize(); ++i) {
+        if (g_interactions[i].user_id == user_id)
+            userInteractions.push_back(g_interactions[i]);
     }
 
     return recommendationsFromProducts(allProductsSorted(), userInteractions, *user, limit);
@@ -853,21 +798,16 @@ Vector<py::dict> get_recommendations(int user_id, int limit) {
 Vector<py::dict> get_related_products(int item_id, int limit) {
     seedDefaults();
     ProductState* product = findProduct(item_id);
-    if (!product) {
-        return {};
-    }
+    if (!product) return {};
 
     Vector<ProductState> products = allProductsSorted();
     auto related = relatedProductsFromProducts(products, item_id, limit);
-    if (!related.empty()) {
-        return related;
-    }
+    if (!related.empty()) return related;
 
     Vector<py::dict> fallback;
-    for (const auto& candidate : products) {
-        if (candidate.id == item_id) {
-            continue;
-        }
+    for (int i = 0; i < products.getSize(); ++i) {
+        const ProductState& candidate = products[i];
+        if (candidate.id == item_id) continue;
         if (stringToLower(candidate.category) == stringToLower(product->category)) {
             py::dict payload = productToDict(candidate);
             payload["similarity_score"] = 0.75;
@@ -875,19 +815,17 @@ Vector<py::dict> get_related_products(int item_id, int limit) {
         }
     }
 
-    vectorSort(fallback, fallback.getSize(), [](const py::dict& left, const py::dict& right) {
-        double leftScore = py::cast<double>(left["similarity_score"]);
-        double rightScore = py::cast<double>(right["similarity_score"]);
-        if (leftScore == rightScore) {
-            return py::cast<int>(left["id"]) < py::cast<int>(right["id"]);
-        }
-        return leftScore > rightScore;
+    vectorSort(fallback, [](const py::dict& left, const py::dict& right) {
+        double ls = py::cast<double>(left["similarity_score"]);
+        double rs = py::cast<double>(right["similarity_score"]);
+        if (ls == rs) return py::cast<int>(left["id"]) < py::cast<int>(right["id"]);
+        return ls > rs;
     });
 
-    if (static_cast<int>(fallback.getSize()) > limit) {
-        fallback.resize(maxVal(0, limit));
-    }
-    return fallback;
+    Vector<py::dict> result;
+    for (int i = 0; i < fallback.getSize() && i < limit; ++i)
+        result.push_back(fallback[i]);
+    return result;
 }
 
 Vector<py::dict> get_trending(int limit) {
@@ -902,20 +840,17 @@ Vector<py::dict> get_trending(int limit) {
 Vector<py::dict> rank_top_products(const Vector<py::dict>& products, int limit) {
     Vector<ProductState> items;
     items.reserve(products.getSize());
-    for (const py::dict& product : products) {
+    for (int idx = 0; idx < products.getSize(); ++idx) {
+        const py::dict& p = products[idx];
         ProductState item;
-        item.id = py::cast<int>(product["id"]);
-        item.name = py::cast<std::string>(product["name"]);
-        item.price = py::cast<double>(product["price"]);
-        item.category = py::cast<std::string>(product["category"]);
-        item.popularity_score = py::cast<double>(product["popularity_score"]);
-        item.stock = py::cast<int>(product["stock"]);
-        if (product.contains("image")) {
-            item.image = py::cast<std::string>(product["image"]);
-        }
-        if (product.contains("description")) {
-            item.description = py::cast<std::string>(product["description"]);
-        }
+        item.id               = py::cast<int>(p["id"]);
+        item.name             = py::cast<std::string>(p["name"]);
+        item.price            = py::cast<double>(p["price"]);
+        item.category         = py::cast<std::string>(p["category"]);
+        item.popularity_score = py::cast<double>(p["popularity_score"]);
+        item.stock            = py::cast<int>(p["stock"]);
+        if (p.contains("image"))       item.image       = py::cast<std::string>(p["image"]);
+        if (p.contains("description")) item.description = py::cast<std::string>(p["description"]);
         items.push_back(item);
     }
     return trendingFromProducts(items, limit);
@@ -924,20 +859,17 @@ Vector<py::dict> rank_top_products(const Vector<py::dict>& products, int limit) 
 Vector<py::dict> get_related_products(const Vector<py::dict>& products, int item_id, int limit) {
     Vector<ProductState> items;
     items.reserve(products.getSize());
-    for (const py::dict& product : products) {
+    for (int idx = 0; idx < products.getSize(); ++idx) {
+        const py::dict& p = products[idx];
         ProductState item;
-        item.id = py::cast<int>(product["id"]);
-        item.name = py::cast<std::string>(product["name"]);
-        item.price = py::cast<double>(product["price"]);
-        item.category = py::cast<std::string>(product["category"]);
-        item.popularity_score = py::cast<double>(product["popularity_score"]);
-        item.stock = py::cast<int>(product["stock"]);
-        if (product.contains("image")) {
-            item.image = py::cast<std::string>(product["image"]);
-        }
-        if (product.contains("description")) {
-            item.description = py::cast<std::string>(product["description"]);
-        }
+        item.id               = py::cast<int>(p["id"]);
+        item.name             = py::cast<std::string>(p["name"]);
+        item.price            = py::cast<double>(p["price"]);
+        item.category         = py::cast<std::string>(p["category"]);
+        item.popularity_score = py::cast<double>(p["popularity_score"]);
+        item.stock            = py::cast<int>(p["stock"]);
+        if (p.contains("image"))       item.image       = py::cast<std::string>(p["image"]);
+        if (p.contains("description")) item.description = py::cast<std::string>(p["description"]);
         items.push_back(item);
     }
     return relatedProductsFromProducts(items, item_id, limit);
@@ -946,67 +878,68 @@ Vector<py::dict> get_related_products(const Vector<py::dict>& products, int item
 Vector<py::dict> get_recent_interactions(const Vector<py::dict>& interactions, int limit) {
     Vector<InteractionState> parsed;
     parsed.reserve(interactions.getSize());
-    for (const py::dict& interaction : interactions) {
+    for (int idx = 0; idx < interactions.getSize(); ++idx) {
+        const py::dict& interaction = interactions[idx];
         InteractionState item;
-        item.id = py::cast<int>(interaction["id"]);
-        item.user_id = py::cast<int>(interaction["user_id"]);
-        item.item_id = py::cast<int>(interaction["item_id"]);
-        item.type = interaction.contains("type") ? py::cast<std::string>(interaction["type"]) : "view";
+        item.id        = py::cast<int>(interaction["id"]);
+        item.user_id   = py::cast<int>(interaction["user_id"]);
+        item.item_id   = py::cast<int>(interaction["item_id"]);
+        item.type      = interaction.contains("type")      ? py::cast<std::string>(interaction["type"])      : "view";
         item.timestamp = interaction.contains("timestamp") ? py::cast<std::string>(interaction["timestamp"]) : nowIso8601();
         parsed.push_back(item);
     }
-    std::reverse(parsed, parsed.getSize());
-    return recentInteractionsFromList(parsed, limit);
+    Vector<InteractionState> reversed;
+    for (int i = parsed.getSize() - 1; i >= 0; --i)
+        reversed.push_back(parsed[i]);
+    return recentInteractionsFromList(reversed, limit);
 }
 
 Vector<py::dict> get_recommendations(const Vector<py::dict>& products,
-                                          const Vector<py::dict>& interactions,
-                                          const py::dict& user,
-                                          int limit) {
+                                     const Vector<py::dict>& interactions,
+                                     const py::dict& user,
+                                     int limit) {
     Vector<ProductState> parsedProducts;
     parsedProducts.reserve(products.getSize());
-    for (const py::dict& product : products) {
+    for (int idx = 0; idx < products.getSize(); ++idx) {
+        const py::dict& p = products[idx];
         ProductState item;
-        item.id = py::cast<int>(product["id"]);
-        item.name = py::cast<std::string>(product["name"]);
-        item.price = py::cast<double>(product["price"]);
-        item.category = py::cast<std::string>(product["category"]);
-        item.popularity_score = py::cast<double>(product["popularity_score"]);
-        item.stock = py::cast<int>(product["stock"]);
-        if (product.contains("image")) {
-            item.image = py::cast<std::string>(product["image"]);
-        }
-        if (product.contains("description")) {
-            item.description = py::cast<std::string>(product["description"]);
-        }
+        item.id               = py::cast<int>(p["id"]);
+        item.name             = py::cast<std::string>(p["name"]);
+        item.price            = py::cast<double>(p["price"]);
+        item.category         = py::cast<std::string>(p["category"]);
+        item.popularity_score = py::cast<double>(p["popularity_score"]);
+        item.stock            = py::cast<int>(p["stock"]);
+        if (p.contains("image"))       item.image       = py::cast<std::string>(p["image"]);
+        if (p.contains("description")) item.description = py::cast<std::string>(p["description"]);
         parsedProducts.push_back(item);
     }
 
     Vector<InteractionState> parsedInteractions;
     parsedInteractions.reserve(interactions.getSize());
-    for (const py::dict& interaction : interactions) {
+    for (int idx = 0; idx < interactions.getSize(); ++idx) {
+        const py::dict& interaction = interactions[idx];
         InteractionState item;
-        item.id = py::cast<int>(interaction["id"]);
-        item.user_id = py::cast<int>(interaction["user_id"]);
-        item.item_id = py::cast<int>(interaction["item_id"]);
-        item.type = interaction.contains("type") ? py::cast<std::string>(interaction["type"]) : "view";
+        item.id        = py::cast<int>(interaction["id"]);
+        item.user_id   = py::cast<int>(interaction["user_id"]);
+        item.item_id   = py::cast<int>(interaction["item_id"]);
+        item.type      = interaction.contains("type")      ? py::cast<std::string>(interaction["type"])      : "view";
         item.timestamp = interaction.contains("timestamp") ? py::cast<std::string>(interaction["timestamp"]) : nowIso8601();
         parsedInteractions.push_back(item);
     }
 
     UserState parsedUser;
-    parsedUser.id = py::cast<int>(user["id"]);
-    parsedUser.name = user.contains("name") ? py::cast<std::string>(user["name"]) : "";
-    parsedUser.email = user.contains("email") ? py::cast<std::string>(user["email"]) : "";
+    parsedUser.id       = py::cast<int>(user["id"]);
+    parsedUser.name     = user.contains("name")     ? py::cast<std::string>(user["name"])     : "";
+    parsedUser.email    = user.contains("email")    ? py::cast<std::string>(user["email"])    : "";
     parsedUser.category = user.contains("category") ? py::cast<std::string>(user["category"]) : "";
 
     return recommendationsFromProducts(parsedProducts, parsedInteractions, parsedUser, limit);
 }
 
 Vector<py::dict> score_recommendations(const Vector<py::dict>& products,
-                                           const Vector<py::dict>& interactions,
-                                           const py::dict& user,
-                                           int limit) {
+                                       const Vector<py::dict>& interactions,
+                                       const py::dict& user,
+                                       int limit) {
     return get_recommendations(products, interactions, user, limit);
 }
 
@@ -1018,33 +951,33 @@ PYBIND11_MODULE(biteapple_core, m) {
     m.doc() = "BiteApple C++ backup-plan core bindings";
 
     m.def("authenticate_user", &authenticate_user, py::arg("email"), py::arg("password"));
-    m.def("create_user", &create_user, py::arg("input"));
-    m.def("get_user_by_id", &get_user_by_id, py::arg("user_id"));
+    m.def("create_user",       &create_user,       py::arg("input"));
+    m.def("get_user_by_id",    &get_user_by_id,    py::arg("user_id"));
 
-    m.def("list_products", &list_products, py::arg("category") = "");
+    m.def("list_products",     &list_products,     py::arg("category") = "");
     m.def("get_product_by_id", &get_product_by_id, py::arg("item_id"));
-    m.def("create_product", &create_product, py::arg("input"));
-    m.def("update_product", &update_product, py::arg("item_id"), py::arg("input"));
-    m.def("delete_product", &delete_product, py::arg("item_id"));
-    m.def("get_cart", &get_cart, py::arg("user_id"));
-    m.def("add_to_cart", &add_to_cart, py::arg("user_id"), py::arg("item_id"), py::arg("quantity") = 1);
-    m.def("remove_from_cart", &remove_from_cart, py::arg("user_id"), py::arg("item_id"));
-    m.def("checkout", &checkout, py::arg("user_id"));
+    m.def("create_product",    &create_product,    py::arg("input"));
+    m.def("update_product",    &update_product,    py::arg("item_id"), py::arg("input"));
+    m.def("delete_product",    &delete_product,    py::arg("item_id"));
+    m.def("get_cart",          &get_cart,          py::arg("user_id"));
+    m.def("add_to_cart",       &add_to_cart,       py::arg("user_id"), py::arg("item_id"), py::arg("quantity") = 1);
+    m.def("remove_from_cart",  &remove_from_cart,  py::arg("user_id"), py::arg("item_id"));
+    m.def("checkout",          &checkout,          py::arg("user_id"));
     m.def("get_dashboard_stats", &get_dashboard_stats);
 
-    m.def("record_interaction", &record_interaction, py::arg("user_id"), py::arg("item_id"), py::arg("interaction_type"));
-    m.def("get_recent_interactions", py::overload_cast<int>(&get_recent_interactions), py::arg("limit") = 8);
-    m.def("get_recent_interactions", py::overload_cast<const Vector<py::dict>&, int>(&get_recent_interactions), py::arg("interactions"), py::arg("limit") = 8);
+    m.def("record_interaction",     &record_interaction,     py::arg("user_id"), py::arg("item_id"), py::arg("interaction_type"));
+    m.def("get_recent_interactions", py::overload_cast<int>(&get_recent_interactions),                                  py::arg("limit") = 8);
+    m.def("get_recent_interactions", py::overload_cast<const Vector<py::dict>&, int>(&get_recent_interactions),         py::arg("interactions"), py::arg("limit") = 8);
 
-    m.def("get_recommendations", py::overload_cast<int, int>(&get_recommendations), py::arg("user_id"), py::arg("limit") = 4);
-    m.def("get_recommendations", py::overload_cast<const Vector<py::dict>&, const Vector<py::dict>&, const py::dict&, int>(&get_recommendations), py::arg("products"), py::arg("interactions"), py::arg("user"), py::arg("limit") = 4);
+    m.def("get_recommendations",  py::overload_cast<int, int>(&get_recommendations),                                                                     py::arg("user_id"),    py::arg("limit") = 4);
+    m.def("get_recommendations",  py::overload_cast<const Vector<py::dict>&, const Vector<py::dict>&, const py::dict&, int>(&get_recommendations),        py::arg("products"),   py::arg("interactions"), py::arg("user"), py::arg("limit") = 4);
 
-    m.def("get_related_products", py::overload_cast<int, int>(&get_related_products), py::arg("item_id"), py::arg("limit") = 3);
-    m.def("get_related_products", py::overload_cast<const Vector<py::dict>&, int, int>(&get_related_products), py::arg("products"), py::arg("item_id"), py::arg("limit") = 3);
+    m.def("get_related_products", py::overload_cast<int, int>(&get_related_products),                                   py::arg("item_id"),    py::arg("limit") = 3);
+    m.def("get_related_products", py::overload_cast<const Vector<py::dict>&, int, int>(&get_related_products),          py::arg("products"),   py::arg("item_id"), py::arg("limit") = 3);
 
-    m.def("get_trending", py::overload_cast<int>(&get_trending), py::arg("limit") = 8);
-    m.def("get_trending", py::overload_cast<const Vector<py::dict>&, int>(&rank_top_products), py::arg("products"), py::arg("limit") = 8);
+    m.def("get_trending",         py::overload_cast<int>(&get_trending),                                                py::arg("limit") = 8);
+    m.def("get_trending",         py::overload_cast<const Vector<py::dict>&, int>(&rank_top_products),                  py::arg("products"),   py::arg("limit") = 8);
 
-    m.def("rank_top_products", &rank_top_products, py::arg("products"), py::arg("limit") = 5);
-    m.def("score_recommendations", &score_recommendations, py::arg("products"), py::arg("interactions"), py::arg("user"), py::arg("limit") = 4);
+    m.def("rank_top_products",    &rank_top_products,    py::arg("products"), py::arg("limit") = 5);
+    m.def("score_recommendations",&score_recommendations, py::arg("products"), py::arg("interactions"), py::arg("user"), py::arg("limit") = 4);
 }

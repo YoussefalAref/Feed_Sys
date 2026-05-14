@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include "Vector.h"
+#include "DTOs.h"
 using namespace std;
 
 

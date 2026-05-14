@@ -25,3 +25,10 @@ def get_related_products(
     item_id: int, limit: int = 3, db: Session = Depends(get_db)
 ) -> list[dict]:
     return recommendation_service.get_related_products(db, item_id, limit)
+
+
+@router.get("/products/{item_id}/graph")
+def get_product_graph(
+    item_id: int, depth: int = 2, db: Session = Depends(get_db)
+) -> dict:
+    return recommendation_service.get_product_graph(db, item_id, depth)

@@ -56,8 +56,7 @@ std::string intToString(int n) {
 InteractionDTO InteractionManager::record_interaction(int user_id, int item_id, const string& interaction_type) {
     // Convert int item_id to string for HashMap lookup
     string itemKey = intToString(item_id);
-    Queue interactionQueue;
-    // 1. Validate item exists 
+    // 1. Validate item exists
     Item foundItem = itemStore.search(itemKey);
     if (foundItem.getID() == "") {
         std::cerr << "[Error] Item ID " << item_id << " not found. Aborting interaction." << std::endl;
@@ -88,23 +87,27 @@ InteractionDTO InteractionManager::record_interaction(int user_id, int item_id, 
     // 5. Log to file
     logToFile(newEvent);
 
-    // 6. Enqueue
+    // 6. Enqueue into the member queue (not a local — persists on the instance)
     interactionQueue.enqueue(newEvent);
     history.push_back(newEvent);
 
-    // 7. Update item popularity
-    if      (type == VIEW)         foundItem.incrementPopularityScore(1);
-    else if (type == CLICK)        foundItem.incrementPopularityScore(2);
-    else if (type == ADD_TO_CART)  foundItem.incrementPopularityScore(5);
-    else if (type == PURCHASE)     foundItem.incrementPopularityScore(10);
-    itemStore.insert(itemKey, foundItem); // write updated item back
+    // 7. Drain the queue and apply score effects
+    while (!interactionQueue.isEmpty()) {
+        Interaction event = interactionQueue.dequeue();
+        InteractionType evType = event.getType();
 
-    // 8. Update user activity score and level
-    if      (type == VIEW)         foundUser.addViews(1);
-    else if (type == CLICK)        foundUser.addClicks(1);
-    else if (type == ADD_TO_CART)  foundUser.addCartAdds(1);
-    else if (type == PURCHASE)     foundUser.addPurchases(1);
-    userStore.insert(user_id, foundUser); // write updated user back
+        if      (evType == VIEW)         foundItem.incrementPopularityScore(1);
+        else if (evType == CLICK)        foundItem.incrementPopularityScore(2);
+        else if (evType == ADD_TO_CART)  foundItem.incrementPopularityScore(5);
+        else if (evType == PURCHASE)     foundItem.incrementPopularityScore(10);
+        itemStore.insert(itemKey, foundItem);
+
+        if      (evType == VIEW)         foundUser.addViews(1);
+        else if (evType == CLICK)        foundUser.addClicks(1);
+        else if (evType == ADD_TO_CART)  foundUser.addCartAdds(1);
+        else if (evType == PURCHASE)     foundUser.addPurchases(1);
+        userStore.insert(user_id, foundUser);
+    }
 
     // 9. Build and return DTO
     InteractionDTO dto;

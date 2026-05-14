@@ -1,4 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { CartProvider } from './context/CartContext';
+import CartDrawer from './components/CartDrawer';
 import Navbar from './components/Navbar';
 import Cart from './pages/Cart';
 import Dashboard from './pages/Dashboard';
@@ -26,19 +28,22 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <Navbar />
-      <main className="app-main">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/products/:itemId" element={<ProductDetails />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
-    </div>
+    <CartProvider>
+      <div className="app-shell">
+        <Navbar />
+        <CartDrawer />
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/products/:itemId" element={<ProductDetails />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+      </div>
+    </CartProvider>
   );
 }
 

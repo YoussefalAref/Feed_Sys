@@ -9,6 +9,7 @@ import {
   getRelatedProducts,
   recordInteraction,
 } from '../services/api';
+import { useCart } from '../context/CartContext';
 
 function ProductDetails() {
   const { itemId } = useParams();
@@ -17,11 +18,15 @@ function ProductDetails() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const user = getCurrentUser() || { id: 1, name: 'Guest' };
+  const { refreshCart, openDrawer } = useCart();
 
   useEffect(() => {
     async function loadProduct() {
       try {
-        const [item, relatedItems] = await Promise.all([getItem(itemId), getRelatedProducts(itemId)]);
+        const [item, relatedItems] = await Promise.all([
+          getItem(itemId),
+          getRelatedProducts(itemId),
+        ]);
         setProduct(item);
         setRelated(relatedItems);
         await recordInteraction(user.id, itemId, 'view');
@@ -35,12 +40,15 @@ function ProductDetails() {
 
   const handleAddToCart = async () => {
     await addToCart(user.id, product.id, 1);
+    await refreshCart();
     setMessage('Added to cart');
+    openDrawer();
   };
 
-  const handleBuy = async () => {
-    await recordInteraction(user.id, product.id, 'purchase');
-    setMessage('Purchase interaction recorded');
+  const handleBuyNow = async () => {
+    await addToCart(user.id, product.id, 1);
+    await refreshCart();
+    openDrawer();
   };
 
   if (error) {
@@ -58,8 +66,11 @@ function ProductDetails() {
     return <div className="page empty-state">Loading product details...</div>;
   }
 
+  const inStock = product.stock == null || product.stock > 0;
+
   return (
     <div className="page details-page">
+      {/* ── Product hero ── */}
       <section className="details-layout">
         <ProductImage className="details-image" product={product} />
         <div className="details-content">
@@ -68,29 +79,42 @@ function ProductDetails() {
           <p className="details-price">EGP {product.price.toLocaleString()}</p>
           <p>{product.description}</p>
           <div className="details-metrics">
-            <span>Popularity: {product.popularity_score}</span>
-            <span>Stock: {product.stock}</span>
+            <span>🔥 {product.popularity_score} popularity</span>
+            <span>
+              {inStock
+                ? `${product.stock} in stock`
+                : <strong className="out-of-stock-text">Out of stock</strong>}
+            </span>
           </div>
           <div className="details-actions">
-            <button className="btn btn-light" type="button" onClick={handleAddToCart}>
+            <button
+              className="btn btn-light"
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!inStock}
+            >
               Add to Cart
             </button>
-            <button className="btn btn-primary" type="button" onClick={handleBuy}>
-              Buy
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={handleBuyNow}
+              disabled={!inStock}
+            >
+              Buy Now
             </button>
           </div>
           {message && <p className="success-text">{message}</p>}
         </div>
       </section>
 
+      {/* ── Related Products ── */}
       {related.length > 0 && (
         <section className="section-block">
-          <div className="section-heading">
-            <h2>Related Products</h2>
-          </div>
+          <h2 className="section-heading">Related Products</h2>
           <div className="recommendation-row">
             {related.map((item) => (
-              <ProductCard key={item.id} product={item} user={user} onCartChange={setMessage} />
+              <ProductCard key={item.id} product={item} user={user} />
             ))}
           </div>
         </section>

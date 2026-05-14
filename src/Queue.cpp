@@ -58,4 +58,5 @@ while(temp!=nullptr){
 temp->data.display();
 temp=temp->next;
 }
-temp=nullptr;;
+temp=nullptr;
+}

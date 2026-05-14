@@ -112,6 +112,10 @@ export async function getRelatedProducts(itemId) {
   return request(`/products/${itemId}/related`);
 }
 
+export async function getProductGraph(itemId) {
+  return request(`/products/${itemId}/graph`);
+}
+
 export async function getCart(userId) {
   return request(`/users/${userId}/cart`);
 }
@@ -123,6 +127,13 @@ export async function addToCart(userId, itemId, quantity = 1) {
       item_id: Number(itemId),
       quantity: Number(quantity),
     }),
+  });
+}
+
+export async function updateCartQuantity(userId, itemId, quantity) {
+  return request(`/users/${userId}/cart/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ quantity: Number(quantity) }),
   });
 }
 
@@ -145,6 +156,20 @@ export async function getPaymentStatus(orderId) {
 export async function markMockPaymentPaid(orderId) {
   return request(`/payments/orders/${orderId}/mock-paid`, {
     method: 'POST',
+  });
+}
+
+export async function initiatePayment({ amount, orderRef, firstName, lastName, email, phone }) {
+  return request('/pay', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount,
+      order_ref: orderRef,
+      first_name: firstName || 'Customer',
+      last_name: lastName || 'Customer',
+      email: email || 'customer@biteapple.test',
+      phone: phone || '+201234567890',
+    }),
   });
 }
 

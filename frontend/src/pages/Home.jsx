@@ -6,7 +6,6 @@ import { getCurrentUser, getProducts, getRecommendations } from '../services/api
 function Home() {
   const [products, setProducts] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const user = getCurrentUser();
@@ -31,17 +30,12 @@ function Home() {
     loadHome();
   }, [activeUser.id]);
 
-  const showMessage = (text) => {
-    setMessage(text);
-    setTimeout(() => setMessage(''), 2200);
-  };
-
   return (
     <div className="page home-page">
       <section className="hero-panel">
         <div>
           <p className="hero-kicker">Smart e-commerce engine</p>
-          <h1>Welcome {activeUser.name}.</h1>
+          <h1>Welcome{user ? `, ${user.name}` : ''}.</h1>
           <p className="hero-copy">
             BiteApple turns clicks, carts, and purchases into a personalized product feed and
             business-ready insight layer.
@@ -49,7 +43,7 @@ function Home() {
         </div>
         <div className="hero-stat">
           <strong>{products.length}</strong>
-          <span>mock products live</span>
+          <span>products live</span>
         </div>
       </section>
 
@@ -61,12 +55,10 @@ function Home() {
           <RecommendationSection
             products={recommendations}
             user={activeUser}
-            onCartChange={showMessage}
           />
-          <Feed products={products} user={activeUser} onCartChange={showMessage} />
+          <Feed products={products} user={activeUser} />
         </>
       )}
-      {message && <div className="toast">{message}</div>}
     </div>
   );
 }

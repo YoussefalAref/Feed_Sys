@@ -154,3 +154,74 @@ def get_trending(db: Session, limit: int = 8) -> list[dict]:
 
     logger.info("Using Python fallback for trending products limit=%s", limit)
     return product_dicts[:limit]
+
+
+def get_product_graph(db: Session, item_id: int, depth: int = 2) -> dict:
+    """
+    Build graph data (nodes + edges) for the product similarity graph centred on item_id.
+    Edges connect products in the same category — mirroring the C++ Graph.build() logic.
+    depth=1 → focal + direct same-category neighbours
+    depth=2 → also include neighbours-of-neighbours
+    """
+    focal = db.get(models.Item, item_id)
+    if not focal:
+        return {"nodes": [], "edges": []}
+
+    all_products = db.query(models.Item).order_by(models.Item.id).all()
+    by_id: dict[int, models.Item] = {p.id: p for p in all_products}
+
+    # Adjacency: same category = edge (mirroring Graph.build)
+    def neighbours(pid: int) -> list[int]:
+        cat = by_id[pid].category
+        return [p.id for p in all_products if p.id != pid and p.category == cat]
+
+    # BFS up to `depth` hops from the focal node
+    visited: set[int] = set()
+    frontier = {item_id}
+    for _ in range(depth):
+        next_frontier: set[int] = set()
+        for pid in frontier:
+            if pid not in visited:
+                visited.add(pid)
+                for nb in neighbours(pid):
+                    if nb not in visited:
+                        next_frontier.add(nb)
+        frontier = next_frontier
+
+    node_ids = visited | frontier
+
+    # Cap graph size at 20 nodes: keep the focal + highest-popularity others
+    if len(node_ids) > 20:
+        others = sorted(
+            [nid for nid in node_ids if nid != item_id],
+            key=lambda nid: by_id[nid].popularity_score,
+            reverse=True,
+        )
+        node_ids = {item_id} | set(others[:19])
+
+    nodes = []
+    for nid in node_ids:
+        p = by_id[nid]
+        nodes.append({
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "popularity_score": p.popularity_score,
+            "price": p.price,
+            "image": p.image,
+            "is_focal": p.id == item_id,
+        })
+
+    # Edges only between nodes that are in the graph
+    seen_edges: set[tuple] = set()
+    edges = []
+    node_set = {n["id"] for n in nodes}
+    for nid in node_set:
+        for nb in neighbours(nid):
+            if nb in node_set:
+                key = (min(nid, nb), max(nid, nb))
+                if key not in seen_edges:
+                    seen_edges.add(key)
+                    edges.append({"source": nid, "target": nb})
+
+    return {"nodes": nodes, "edges": edges}

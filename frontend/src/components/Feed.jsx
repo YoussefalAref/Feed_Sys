@@ -1,6 +1,6 @@
 import ProductCard from './ProductCard';
 
-function Feed({ products, user, onCartChange }) {
+function Feed({ products, user }) {
   if (!products.length) {
     return <div className="empty-state">No products available yet.</div>;
   }
@@ -9,7 +9,7 @@ function Feed({ products, user, onCartChange }) {
     <section className="section-block">
       <div className="section-heading">
         <h2>Product Feed</h2>
-        <p>Smartly sorted products ready for browsing, carting, and purchase signals.</p>
+        <p>Smartly sorted by popularity and personalized to your browsing behavior.</p>
       </div>
       <div className="product-grid">
         {products.map((product) => (
@@ -17,7 +17,6 @@ function Feed({ products, user, onCartChange }) {
             key={product.id}
             product={product}
             user={user}
-            onCartChange={onCartChange}
           />
         ))}
       </div>

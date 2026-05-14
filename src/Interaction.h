@@ -11,6 +11,7 @@ int itemID;
 InteractionType type;
 long timestamp;
 public:
+    Interaction() : userID(0), itemID(0), type(VIEW), timestamp(0) {}
     //saves the new live event
 Interaction(int userID, int itemID, InteractionType type);
     // used in loading from file

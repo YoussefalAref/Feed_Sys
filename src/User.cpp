@@ -180,6 +180,8 @@ static UserDTO userToDTO(const User& u) {
     return dto;
 }
 
+namespace {
+
 // ---------------------------------------------------------------------------
 // authenticate_user
 // 1. Email → ID lookup (O(1)).
@@ -253,3 +255,5 @@ UserDTO get_user_by_id(int user_id) {
 
     return userToDTO(u);
 }
+
+} // namespace

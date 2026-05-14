@@ -10,3 +10,7 @@ class CartAddRequest(BaseModel):
 class CartRemoveRequest(BaseModel):
     user_id: int
     item_id: int
+
+
+class CartUpdateRequest(BaseModel):
+    quantity: int

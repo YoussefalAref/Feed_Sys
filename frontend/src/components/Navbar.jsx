@@ -1,9 +1,11 @@
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout } from '../services/api';
+import { useCart } from '../context/CartContext';
 
 function Navbar() {
   const navigate = useNavigate();
   const user = getCurrentUser();
+  const { cartCount } = useCart();
 
   const handleLogout = async () => {
     await logout();
@@ -22,8 +24,9 @@ function Navbar() {
           <NavLink className="nav-link" to="/">
             Home
           </NavLink>
-          <NavLink className="nav-link" to="/cart">
+          <NavLink className="nav-link cart-nav-link" to="/cart">
             Cart
+            {cartCount > 0 && <span className="cart-badge">{cartCount > 99 ? '99+' : cartCount}</span>}
           </NavLink>
           {user ? (
             <>

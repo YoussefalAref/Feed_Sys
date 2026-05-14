@@ -11,14 +11,14 @@ template<typename T>
 struct Pair {
     T first;
     double second;
-    
+
     Pair() : first(), second(0.0) {}
     Pair(T f, double s) : first(f), second(s) {}
 };
 
-// Bubble sort for Vector with custom comparator
-template<typename T>
-void vectorSort(Vector<T>& vec, bool (*compare)(const T&, const T&)) {
+// Bubble sort with a template comparator (supports lambdas and function pointers)
+template<typename T, typename Comp>
+void vectorSort(Vector<T>& vec, Comp compare) {
     int n = vec.getSize();
     for (int i = 0; i < n - 1; ++i) {
         for (int j = 0; j < n - i - 1; ++j) {
@@ -31,13 +31,11 @@ void vectorSort(Vector<T>& vec, bool (*compare)(const T&, const T&)) {
     }
 }
 
-// Find element in vector using equals
+// Find element in vector, returns index or -1 if not found
 template<typename T>
 int vectorFind(const Vector<T>& vec, const T& value) {
     for (int i = 0; i < vec.getSize(); ++i) {
-        if (vec[i] == value) {
-            return i;
-        }
+        if (vec[i] == value) return i;
     }
     return -1;
 }
@@ -59,32 +57,25 @@ inline std::string intToString(int value) {
 
 // Character to lowercase
 inline char toLowerChar(char c) {
-    if (c >= 'A' && c <= 'Z') {
-        return c + 32;
-    }
+    if (c >= 'A' && c <= 'Z') return c + 32;
     return c;
 }
 
 // String to lowercase
 inline std::string stringToLower(const std::string& str) {
     std::string result = str;
-    for (int i = 0; i < (int)result.length(); ++i) {
+    for (int i = 0; i < (int)result.length(); ++i)
         result[i] = toLowerChar(result[i]);
-    }
     return result;
 }
 
 // Maximum of two numbers
 template<typename T>
-inline T maxVal(T a, T b) {
-    return a > b ? a : b;
-}
+inline T maxVal(T a, T b) { return a > b ? a : b; }
 
 // Minimum of two numbers
 template<typename T>
-inline T minVal(T a, T b) {
-    return a < b ? a : b;
-}
+inline T minVal(T a, T b) { return a < b ? a : b; }
 
 // Structure for iteration over HashMap entries
 template<typename K, typename V>

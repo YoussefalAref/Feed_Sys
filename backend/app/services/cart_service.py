@@ -43,6 +43,21 @@ def add_to_cart(db: Session, user_id: int, item_id: int, quantity: int = 1) -> l
     return get_cart(db, user_id)
 
 
+def update_cart_quantity(db: Session, user_id: int, item_id: int, quantity: int) -> list[dict]:
+    if quantity < 1:
+        return remove_from_cart(db, user_id, item_id)
+    row = (
+        db.query(models.CartItem)
+        .filter(models.CartItem.user_id == user_id, models.CartItem.item_id == item_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Item not in cart")
+    row.quantity = quantity
+    db.commit()
+    return get_cart(db, user_id)
+
+
 def remove_from_cart(db: Session, user_id: int, item_id: int) -> list[dict]:
     row = (
         db.query(models.CartItem)
@@ -94,6 +109,7 @@ def checkout(db: Session, user_id: int) -> dict:
         "message": "Order created. Complete payment with Paymob before purchase is finalized.",
         "purchased": 0,
         "order_id": order.id,
+        "total": total,
         "payment_status": payment["payment_status"],
         "payment_reference": payment["payment_reference"],
         "paymob_reference": payment["paymob_reference"],
